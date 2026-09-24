@@ -1,0 +1,16 @@
+{
+  "name": "Grupo Pana — ATS y PETAR",
+  "short_name": "SST Pana",
+  "description": "ATS y PETAR de trabajo en caliente — Gestión Digital SST, sede Ate.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F3F4F6",
+  "theme_color": "#E20A17",
+  "lang": "es-PE",
+  "icons": [
+    { "src": "icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

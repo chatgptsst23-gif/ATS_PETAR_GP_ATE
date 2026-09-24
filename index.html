@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es-PE">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Grupo Pana — ATS y PETAR de trabajo en caliente, sede Ate.">
+  <meta name="theme-color" content="#E20A17">
+  <title>Grupo Pana — ATS y PETAR</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icono-192.png">
+  <link rel="apple-touch-icon" href="icono-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="SST Pana">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="cabecera">
+    <div class="cabecera__interior">
+      <button id="btnAtras" class="cabecera__atras" aria-label="Volver" hidden>
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <img class="cabecera__logo" src="logo_isotipo_blanco.png" alt="Grupo Pana">
+      <div class="cabecera__textos"><strong id="tituloApp">Grupo Pana</strong><small id="subApp">Gestión Digital SST</small></div>
+      <span class="cabecera__modulo" id="modulo">ATS · PETAR</span>
+    </div>
+    <div id="guardado" class="guardado" aria-live="polite"></div>
+  </header>
+
+  <main id="app" class="contenido"></main>
+
+  <footer class="pie"><span id="motor">Copia en este celular</span><span>v04 · demo</span></footer>
+  <div id="avisos" class="avisos" aria-live="polite"></div>
+
+  <script src="jspdf.umd.min.js"></script>
+  <script src="config.js"></script>
+  <script src="logo.js"></script>
+  <script src="ui.js"></script>
+  <script src="modelo.js"></script>
+  <script src="datos.js"></script>
+  <script src="pdf.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
