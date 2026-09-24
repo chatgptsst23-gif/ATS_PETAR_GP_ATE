@@ -22,7 +22,7 @@ window.SST_CONFIG = {
 
   /* URL del flujo de Power Automate ("Cuando se recibe una solicitud HTTP").
      Vacía = la app funciona igual, pero no envía correo ni guarda en SharePoint. */
-  flujoUrl: '',
+  flujoUrl: 'https://defaultd9dd2d8ba0324ef5885ff9e7fa6789.56.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/01/workflows/32c6eb63182b409ea7380faf8d1c6e5c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=dUX0IYyYXs7ZUxe4ke-o62mlODfIURmXxz4XmJbGCTg',
 
   /* Momentos en que se envía el documento a SST */
   enviarAl: { atsRegistrado: true, petarAutorizado: true, petarCerrado: true },
