@@ -31,7 +31,7 @@
     nuevoATS: function (numero, usuario) {
       return {
         id: 'd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-        tipo: 'ATS', numero: numero, estado: 'BORRADOR',
+        tipo: 'ATS', prueba: !!C.modoPrueba, numero: numero, estado: 'BORRADOR',
         creadoEn: new Date().toISOString(), actualizadoEn: '',
         usuario: { nombre: usuario.nombre, cargo: usuario.cargo },
         generales: {
@@ -55,7 +55,7 @@
       C.petar.epp.forEach(function (g) { g.items.forEach(function (it) { if (it.sugerido) epp[it.id] = true; }); });
       var p = {
         id: 'd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-        tipo: 'PETAR', numero: numero, estado: 'BORRADOR',
+        tipo: 'PETAR', prueba: !!C.modoPrueba, numero: numero, estado: 'BORRADOR',
         creadoEn: new Date().toISOString(), actualizadoEn: '',
         usuario: { nombre: usuario.nombre, cargo: usuario.cargo },
         descripcion: {
@@ -105,6 +105,8 @@
 
     /* ------------------------- Estados --------------------------- */
     cambiarEstado: function (d, estado, usuario, comentario) {
+      var permitidos = d.tipo === 'ATS' ? { BORRADOR: ['REGISTRADO'] } : { BORRADOR: ['AUTORIZADO'], AUTORIZADO: ['CERRADO', 'CANCELADO'] };
+      if ((permitidos[d.estado] || []).indexOf(estado) < 0) throw new Error('Cambio de estado no permitido: ' + d.estado + ' → ' + estado);
       d.estado = estado;
       d.bitacora.push({ estado: estado, fechaHora: new Date().toISOString(), usuario: usuario || '', comentario: comentario || '' });
     },
@@ -114,7 +116,9 @@
     estadoVisible: function (d) {
       if (d.tipo === 'PETAR' && d.estado === 'AUTORIZADO') {
         var fin = Modelo.finVigencia(d);
-        if (fin && new Date() > fin) return 'VENCIDO';
+        if (fin && new Date() >= fin) return 'VENCIDO';
+        var inicio = aFecha(d.descripcion.fecha, d.descripcion.horaInicio);
+        if (inicio && new Date() < inicio) return 'PROGRAMADO';
       }
       return d.estado;
     },
@@ -211,6 +215,9 @@
       }
       if (id === 'emergencia') {
         var m = d.emergencia;
+        C.petar.emergencias.forEach(function (x) { if (['si', 'na'].indexOf(m.emergencias[x]) < 0) e.push('Responde la emergencia: ' + x + '.'); });
+        C.petar.equiposEmergencia.forEach(function (x) { if (['si', 'na'].indexOf(m.equipos[x]) < 0) e.push('Responde el equipo de emergencia: ' + x + '.'); });
+        if (Modelo.observados(d).length) req(d.observaciones, 'Describe las medidas o restricciones para los controles adicionales respondidos No.');
         req(m.encargadoSede, 'Indica el encargado de la sede.');
         req(m.supervisorPrevencionista, 'Indica el supervisor o prevencionista.');
         if (!m.rutasLibres) e.push('Indica si las rutas de acceso y salida están libres de obstáculos.');

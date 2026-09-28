@@ -18,11 +18,12 @@ window.SST_CONFIG = {
   sistema: 'Gestión Digital SST',
   sede: 'Ate',
   areaPorDefecto: 'Planchado y pintura (B&P)',
-  version: 'v04 (demo)',
+  version: 'v05 (prueba de campo)',
 
   /* URL del flujo de Power Automate ("Cuando se recibe una solicitud HTTP").
      Vacía = la app funciona igual, pero no envía correo ni guarda en SharePoint. */
-  flujoUrl: 'https://defaultd9dd2d8ba0324ef5885ff9e7fa6789.56.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/01/workflows/32c6eb63182b409ea7380faf8d1c6e5c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=dUX0IYyYXs7ZUxe4ke-o62mlODfIURmXxz4XmJbGCTg',
+  flujoUrl: '',
+  modoPrueba: true, /* Visita de campo: bloquea todos los envíos externos. */
 
   /* Momentos en que se envía el documento a SST */
   enviarAl: { atsRegistrado: true, petarAutorizado: true, petarCerrado: true },
@@ -166,6 +167,7 @@ window.SST_CONFIG = {
     BORRADOR:   { etiqueta: 'Borrador',   tono: 'neutro' },
     REGISTRADO: { etiqueta: 'Registrado', tono: 'ok' },
     AUTORIZADO: { etiqueta: 'Autorizado', tono: 'ok' },
+    PROGRAMADO: { etiqueta: 'Autorizado · aún no vigente', tono: 'frio' },
     VENCIDO:    { etiqueta: 'Vencido',    tono: 'mal' },
     CERRADO:    { etiqueta: 'Cerrado',    tono: 'frio' },
     CANCELADO:  { etiqueta: 'Cancelado',  tono: 'mal' }

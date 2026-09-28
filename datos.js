@@ -33,7 +33,7 @@
         return new Promise(function (ok, mal) {
           var t = db.transaction(st, modo), req = fn(t.objectStore(st));
           t.oncomplete = function () { ok(req && req.result); };
-          t.onerror = function () { mal(t.error); };
+          t.onabort = t.onerror = function () { mal(t.error || new Error('Guardado cancelado')); };
         });
       });
     }
@@ -44,7 +44,16 @@
       all: function () { return tx(ST, 'readonly', function (s) { return s.getAll(); }); },
       del: function (id) { return tx(ST, 'readwrite', function (s) { return s.delete(id); }); },
       meta: function (k) { return tx(META, 'readonly', function (s) { return s.get(k); }).then(function (r) { return r ? r.valor : undefined; }); },
-      setMeta: function (k, v) { return tx(META, 'readwrite', function (s) { return s.put({ clave: k, valor: v }); }); }
+      setMeta: function (k, v) { return tx(META, 'readwrite', function (s) { return s.put({ clave: k, valor: v }); }); },
+      siguiente: function (k) {
+        return abrir().then(function (db) { return new Promise(function (ok, mal) {
+          var t = db.transaction(META, 'readwrite'), st = t.objectStore(META), n;
+          var req = st.get(k);
+          req.onsuccess = function () { n = ((req.result || {}).valor || 0) + 1; st.put({ clave: k, valor: n }); };
+          t.oncomplete = function () { ok(n); };
+          t.onabort = t.onerror = function () { mal(t.error || new Error('No se pudo reservar el número')); };
+        }); });
+      }
     };
   })();
 
@@ -59,7 +68,12 @@
       all: function () { return Promise.resolve(leer().docs); },
       del: function (id) { var d = leer(); d.docs = d.docs.filter(function (y) { return y.id !== id; }); esc(d); return Promise.resolve(); },
       meta: function (k) { return Promise.resolve(leer().meta[k]); },
-      setMeta: function (k, v) { var d = leer(); d.meta[k] = v; esc(d); return Promise.resolve(); }
+      setMeta: function (k, v) { var d = leer(); d.meta[k] = v; esc(d); return Promise.resolve(); },
+      siguiente: function (k) {
+        function reservar() { var d = leer(); var n = (d.meta[k] || 0) + 1; d.meta[k] = n; esc(d); return n; }
+        if (navigator.locks) return navigator.locks.request(DB + '_numeracion', reservar);
+        return Promise.resolve(reservar());
+      }
     };
   })();
 
@@ -90,18 +104,14 @@
     pref: function (k, v) {
       return listo.then(function () { return v === undefined ? motor.meta('pref_' + k) : motor.setMeta('pref_' + k, v); });
     },
-    /* Número: TIPO-SEDE-0001-XYZ. El sufijo identifica al celular y evita
-       que dos equipos generen el mismo número. */
+    /* Contador atómico en IndexedDB. Año + identificador aleatorio evitan
+       reutilizar códigos al reiniciar el contador o usar varias pestañas. */
     siguienteNumero: function (tipo) {
-      var sede = window.SST_CONFIG.sede.toUpperCase().slice(0, 3);
-      return listo.then(codigoDispositivo).then(function (disp) {
-        var k = 'corr_' + tipo + '_' + new Date().getFullYear();
-        return motor.meta(k).then(function (n) {
-          n = (n || 0) + 1;
-          return motor.setMeta(k, n).then(function () {
-            return tipo + '-' + sede + '-' + String(n).padStart(4, '0') + '-' + disp;
-          });
-        });
+      var sede = window.SST_CONFIG.sede.toUpperCase().slice(0, 3), anio = new Date().getFullYear();
+      return listo.then(function () { return motor.siguiente('corr_' + tipo + '_' + anio); }).then(function (n) {
+        var bytes = new Uint8Array(4); window.crypto.getRandomValues(bytes);
+        var sufijo = Array.from(bytes).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('').toUpperCase();
+        return tipo + '-' + sede + '-' + anio + '-' + String(n).padStart(4, '0') + '-' + sufijo;
       });
     }
   };
@@ -118,6 +128,12 @@
       var registro = { fechaHora: new Date().toISOString(), momento: momento, resultado: '', detalle: '' };
       doc.envios = doc.envios || [];
 
+      if (C.modoPrueba || doc.prueba) {
+        registro.resultado = 'prueba';
+        registro.detalle = 'Documento de prueba guardado solo en este dispositivo. No se realizó ningún envío.';
+        doc.envios.push(registro);
+        return Promise.resolve(registro);
+      }
       if (!Envio.configurado()) {
         registro.resultado = 'sin_flujo';
         registro.detalle = 'No hay URL del flujo configurada; el PDF solo se generó en el celular.';
@@ -162,8 +178,8 @@
         headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
         body: JSON.stringify(payload)
       }).then(function () {
-        registro.resultado = 'enviado';
-        registro.detalle = 'Enviado al flujo de SST (' + payload.nombreArchivo + ').';
+        registro.resultado = 'no_confirmado';
+        registro.detalle = 'Solicitud enviada al flujo (' + payload.nombreArchivo + '), sin confirmación de recepción ni archivo. Verifica con SST antes de reintentar.';
         doc.envios.push(registro);
         return registro;
       }).catch(function (e) {

@@ -20,7 +20,7 @@
       ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
   }
   function horaDe(iso) { if (!iso) return ''; var d = new Date(iso); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
-  function sn(v) { return v === 'si' ? 'SÍ' : v === 'no' ? 'NO' : v === 'na' ? 'N/A' : '—'; }
+  function sn(v) { return v === 'si' ? 'SÍ' : v === 'no' ? 'NO' : v === 'na' ? 'N/A' : 'SIN RESPONDER'; }
 
   /* --------------------------- Lienzo ------------------------------ */
   function Lienzo(d) {
@@ -65,12 +65,18 @@
     doc.text('Código: ' + cfg.codigo, xC + 2, M + 4);
     doc.text('Versión: ' + cfg.versionFormato, xC + 2, M + 7.2);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(primera ? 8 : 7);
+    doc.setFontSize(Math.min(primera ? 8 : 7, 7 * 40 / Math.max(40, doc.getTextWidth(d.numero))));
     doc.text(d.numero, xC + 2, M + (primera ? 12 : 11));
     if (primera) {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(6.8);
       doc.text('Estado: ' + window.Modelo.etiquetaEstado(window.Modelo.estadoVisible(d)), xC + 2, M + 16);
     }
     this.y = M + h + 3;
+    if (d.prueba) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor.apply(doc, ROJO);
+      doc.text('PRUEBA — NO AUTORIZA TRABAJOS', M + U / 2, this.y + 3, { align: 'center' });
+      doc.setTextColor.apply(doc, TINTA); this.y += 8;
+    }
   };
 
   Lienzo.prototype.espacio = function (alto) {
@@ -315,9 +321,9 @@
     var m = d.emergencia;
     L.banda('VI. PROTOCOLOS DE RESPUESTA ANTE EMERGENCIA');
     L.fila([['Nombre del encargado de la sede', m.encargadoSede, 0.5], ['Nombre del supervisor o prevencionista', m.supervisorPrevencionista, 0.5]]);
-    var emer = C.petar.emergencias.map(function (x) { return [x, m.emergencias[x] === 'si' ? 'SÍ' : 'N/A']; });
+    var emer = C.petar.emergencias.map(function (x) { return [x, sn(m.emergencias[x])]; });
     if (m.emergenciaOtro) emer.push(['Otros: ' + m.emergenciaOtro, 'SÍ']);
-    var equi = C.petar.equiposEmergencia.map(function (x) { return [x, m.equipos[x] === 'si' ? 'SÍ' : 'N/A']; });
+    var equi = C.petar.equiposEmergencia.map(function (x) { return [x, sn(m.equipos[x])]; });
     if (m.equipoOtro) equi.push(['Otros: ' + m.equipoOtro, 'SÍ']);
     var nFilas = Math.max(emer.length, equi.length), filas = [];
     for (var i = 0; i < nFilas; i++) filas.push([(emer[i] || ['', ''])[0], (emer[i] || ['', ''])[1], (equi[i] || ['', ''])[0], (equi[i] || ['', ''])[1]]);
@@ -378,7 +384,7 @@
     generar: generar,
     nombreArchivo: function (d) {
       var e = window.Modelo.estadoVisible(d).toLowerCase();
-      return (d.numero + '_' + e).toLowerCase().replace(/[^a-z0-9_-]/g, '') + '.pdf';
+      return ((d.prueba ? 'PRUEBA_' : '') + d.numero + '_' + e).toLowerCase().replace(/[^a-z0-9_-]/g, '') + '.pdf';
     },
     base64: function (d) { return generar(d).output('datauristring').split(',')[1]; },
     blobUrl: function (d) { return URL.createObjectURL(generar(d).output('blob')); },

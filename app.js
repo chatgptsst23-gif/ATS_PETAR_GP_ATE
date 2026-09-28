@@ -26,11 +26,27 @@
   function guardarLuego() {
     if (!st.doc) return;
     clearTimeout(tGuardar);
-    tGuardar = setTimeout(function () { window.Store.guardar(st.doc).then(UI.marcarGuardado); }, 300);
+    var documento = st.doc;
+    tGuardar = setTimeout(function () { window.Store.guardar(documento).then(UI.marcarGuardado).catch(errorGuardado); }, 300);
+  }
+  function errorGuardado() {
+    var el = $('#guardado');
+    if (el) { el.textContent = 'No se pudo guardar. Mantén esta página abierta y reintenta.'; el.classList.add('guardado--visible'); }
+    UI.aviso('Error de guardado. Los últimos cambios pueden no estar guardados.', 'mal');
   }
   function guardarYa() { clearTimeout(tGuardar); return st.doc ? window.Store.guardar(st.doc) : Promise.resolve(); }
   function quieto() { var y = window.scrollY; render(); window.scrollTo(0, y); }
   function ir(p, paso) {
+    if (p === 'form' && st.doc) {
+      if (!M.editable(st.doc)) { UI.aviso('Solo se editan borradores.', 'mal'); return; }
+      if (M.tieneFirmas(st.doc)) {
+        UI.confirmar({ titulo: 'Volver a editar', texto: 'Al volver al formulario se borrarán las firmas. Todos deberán firmar nuevamente.', aceptar: 'Editar y borrar firmas', peligro: true }).then(function (ok) {
+          if (!ok) return;
+          M.limpiarFirmas(st.doc); guardarYa().then(function () { ir(p, paso); });
+        });
+        return;
+      }
+    }
     st.pantalla = p; if (paso !== undefined) st.paso = paso;
     st.errores = []; window.scrollTo(0, 0); render();
   }
@@ -80,6 +96,7 @@
     };
     (v[st.pantalla] || vInicio)();
     cabecera();
+    $('#pruebaBanner').hidden = !C.modoPrueba;
     if (['firmas', 'verificacion', 'cierre'].indexOf(st.pantalla) >= 0) montarFirmas();
   }
 
@@ -345,7 +362,7 @@
         listaFirmantes(d.personal, 'personal') +
         (d.personal.length < C.ats.maxPersonal ? nuevoFirmante(false) : '<p class="nota">Máximo ' + C.ats.maxPersonal + ' personas.</p>') + '</section>' +
         '<section class="bloque"><h2 class="h-seccion">Supervisor de trabajo</h2>' + firmaFija('supervisorFirma', d.supervisorFirma, false, d.generales.supervisor) + '</section>' +
-        '<section class="bloque acciones-finales"><button class="btn btn--principal btn--ancho" data-accion="registrar-ats">Registrar ATS y enviar a SST</button>' +
+        '<section class="bloque acciones-finales"><button class="btn btn--principal btn--ancho" data-accion="registrar-ats">' + (C.modoPrueba ? 'Registrar ATS de prueba' : 'Registrar ATS y enviar a SST') + '</button>' +
         '<button class="btn btn--secundario btn--ancho" data-accion="guardar-salir">Guardar y salir</button></section>';
     } else {
       h += '<section class="bloque"><h2 class="h-seccion">VII. Colaboradores participantes</h2>' +
@@ -358,7 +375,7 @@
         C.petar.firmasAutorizacion.map(function (a) {
           return '<h3 class="h-sub">' + esc(a.cargo) + '</h3>' + (a.ayuda ? '<p class="nota">' + esc(a.ayuda) + '</p>' : '') + firmaFija('autorizacion.' + a.clave, d.autorizacion[a.clave], false);
         }).join('') + '</section>' +
-        '<section class="bloque acciones-finales"><button class="btn btn--principal btn--ancho" data-accion="autorizar">Autorizar PETAR y enviar a SST</button>' +
+        '<section class="bloque acciones-finales"><button class="btn btn--principal btn--ancho" data-accion="autorizar">' + (C.modoPrueba ? 'Simular autorización del PETAR' : 'Autorizar PETAR y enviar a SST') + '</button>' +
         '<button class="btn btn--secundario btn--ancho" data-accion="guardar-salir">Guardar y salir</button></section>';
     }
     app.innerHTML = h;
@@ -426,14 +443,15 @@
       '<button class="btn btn--secundario btn--ancho" data-accion="ir-verificacion">Registrar verificación durante el trabajo</button>' +
       '<button class="btn btn--secundario btn--ancho" data-accion="ir-cierre">Cerrar permiso</button>' +
       '<button class="btn btn--peligro btn--ancho" data-accion="cancelar">Cancelar por alarma o emergencia</button>';
+    if (d.tipo === 'PETAR' && e === 'PROGRAMADO') acc += '<button class="btn btn--peligro btn--ancho" data-accion="cancelar">Cancelar permiso programado</button>';
     if (d.tipo === 'PETAR' && e === 'VENCIDO') acc += '<button class="btn btn--secundario btn--ancho" data-accion="ir-cierre">Cerrar permiso</button>';
     if (d.estado === 'BORRADOR') acc +=
       '<button class="btn btn--secundario btn--ancho" data-accion="editar" data-paso="0">Continuar edición</button>' +
       '<button class="btn btn--peligro btn--ancho" data-accion="eliminar">Eliminar borrador</button>';
 
     app.innerHTML = resumen(d, false) +
-      (u ? '<section class="bloque"><div class="alerta alerta--' + (u.resultado === 'enviado' ? 'ok' : 'aviso') + '"><strong>' +
-        ({ enviado: 'Enviado a SST', pendiente: 'Envío pendiente', error: 'Error de envío', sin_flujo: 'No enviado (flujo sin configurar)' }[u.resultado] || u.resultado) +
+      (u ? '<section class="bloque"><div class="alerta alerta--' + (u.resultado === 'confirmado' ? 'ok' : 'aviso') + '"><strong>' +
+        ({ prueba: 'Prueba local · sin envío', no_confirmado: 'Envío intentado · recepción sin confirmar', confirmado: 'Recepción confirmada', enviado: 'Envío anterior · recepción sin confirmar', pendiente: 'Envío pendiente', error: 'Error de envío', sin_flujo: 'No enviado (flujo sin configurar)' }[u.resultado] || u.resultado) +
         '</strong><div>' + esc(u.detalle) + '</div><small>' + esc(UI.fechaHora(u.fechaHora)) + '</small></div></section>' : '') +
       '<section class="bloque"><h2 class="h-seccion">Acciones</h2>' + acc +
       '<h2 class="h-seccion">Trazabilidad</h2><div class="historial-estados">' +
@@ -517,7 +535,7 @@
         return '<h3 class="h-sub">' + esc(a.cargo) + '</h3>' + firmaFija('cierre.' + a.clave, x, false);
       }).join('') +
       '</section><div class="barra-pie"><button class="btn btn--fantasma" data-accion="volver-detalle">Cancelar</button>' +
-      '<button class="btn btn--principal" data-accion="registrar-cierre">Cerrar y enviar a SST</button></div>';
+      '<button class="btn btn--principal" data-accion="registrar-cierre">' + (C.modoPrueba ? 'Registrar cierre de prueba' : 'Cerrar y enviar a SST') + '</button></div>';
   }
 
   /* ============================ Ajustes ============================= */
@@ -528,7 +546,7 @@
       campo('URL del flujo', '<textarea id="aUrl" rows="4" placeholder="https://...">' + esc(C.flujoUrl) + '</textarea>') +
       '<button class="btn btn--principal btn--ancho" data-accion="guardar-url">Guardar</button>' +
       '<button class="btn btn--fantasma btn--ancho" data-accion="probar-envio"' + (window.Envio.configurado() ? '' : ' disabled') + '>Enviar un documento de prueba</button>' +
-      '<p class="nota">La app no puede leer la respuesta del flujo. La prueba es correcta si llega el correo y aparece el PDF en la carpeta de SST.</p>' +
+      '<p class="nota">El modo de prueba bloquea todos los envíos. Para habilitar operación real se debe configurar una nueva conexión y verificar la recepción en SST.</p>' +
       '<h2 class="h-seccion">Este celular</h2><div class="datos">' +
       '<div class="dato"><span>Almacenamiento</span><strong>' + esc(st.motor) + '</strong></div>' +
       '<div class="dato"><span>Versión</span><strong>' + esc(C.version) + '</strong></div></div></section>';
@@ -553,11 +571,11 @@
 
   /* ============================ Envío =============================== */
   function enviar(d, momento) {
-    UI.aviso('Enviando a SST…');
+    UI.aviso(C.modoPrueba || d.prueba ? 'Guardando prueba local…' : 'Intentando envío a SST…');
     return window.Envio.enviar(d, momento).then(function (r) {
       return window.Store.guardar(d).then(function () {
-        var msg = { enviado: 'Documento enviado a SST', sin_flujo: 'Registrado. No se envió: falta configurar el flujo.', pendiente: 'Registrado. Envío pendiente (sin conexión con el flujo).', error: 'Registrado, pero falló el envío.' }[r.resultado];
-        UI.aviso(msg, r.resultado === 'enviado' ? 'ok' : 'mal');
+        var msg = { prueba: 'Prueba registrada en este dispositivo. Sin envío.', no_confirmado: 'Envío intentado. Verifica la recepción con SST.', confirmado: 'Recepción confirmada por SST', enviado: 'Recepción sin confirmar', sin_flujo: 'Registrado. No se envió: falta configurar el flujo.', pendiente: 'Registrado. Envío pendiente (sin conexión con el flujo).', error: 'Registrado, pero falló el envío.' }[r.resultado];
+        UI.aviso(msg, ['prueba', 'confirmado'].indexOf(r.resultado) >= 0 ? 'ok' : 'mal');
         return r;
       });
     });
@@ -695,7 +713,7 @@
       /* Ajustes */
       case 'guardar-url':
         C.flujoUrl = $('#aUrl').value.trim();
-        window.Store.pref('flujoUrl', C.flujoUrl).then(function () { UI.aviso(C.flujoUrl ? 'URL guardada' : 'URL eliminada'); render(); });
+        window.Store.pref('flujoUrl_v05', C.flujoUrl).then(function () { UI.aviso(C.flujoUrl ? 'URL guardada' : 'URL eliminada'); render(); });
         break;
       case 'probar-envio': probarEnvio(); break;
     }
@@ -720,10 +738,14 @@
   }
 
   function finalizar(estado, momento, tituloConf, textoConf) {
-    var d = st.doc, e = M.validarFirmas(d).concat(M.bloqueos(d));
+    var d = st.doc, e = M.validarTodo(d).map(function (x) { return x.mensaje; }).concat(M.validarFirmas(d), M.bloqueos(d));
+    if (!M.editable(d)) { UI.aviso('El documento ya fue finalizado.', 'mal'); return; }
     if (e.length) { st.errores = e; render(); window.scrollTo(0, 0); return; }
-    UI.confirmar({ titulo: tituloConf, texto: textoConf, aceptar: estado === 'AUTORIZADO' ? 'Autorizar' : 'Registrar' }).then(function (ok) {
+    UI.confirmar({ titulo: C.modoPrueba ? 'Registrar simulación' : tituloConf, texto: C.modoPrueba ? 'Este documento es de prueba, no autoriza trabajos y no se enviará a SST.' : textoConf, aceptar: estado === 'AUTORIZADO' ? 'Autorizar' : 'Registrar' }).then(function (ok) {
       if (!ok) return;
+      if (!M.editable(d)) return;
+      var pendientes = M.validarTodo(d).map(function (x) { return x.mensaje; }).concat(M.validarFirmas(d), M.bloqueos(d));
+      if (pendientes.length) { st.errores = pendientes; render(); return; }
       M.cambiarEstado(d, estado, st.usuario.nombre, estado === 'AUTORIZADO' ? 'Autorizado por ' + d.autorizacion.supervisor.nombre + ' y ' + d.autorizacion.area.nombre : 'ATS firmado por ' + d.personal.length + ' persona(s)');
       window.Store.guardar(d).then(function () {
         return (C.enviarAl[momento] ? enviar(d, momento) : null);
@@ -767,13 +789,14 @@
   }
 
   function probarEnvio() {
+    if (C.modoPrueba) { UI.aviso('Modo prueba: los envíos externos están bloqueados.'); return; }
     var prueba = M.nuevoATS('ATS-PRUEBA-' + Date.now().toString().slice(-5), st.usuario);
     prueba.generales.tarea = 'Prueba de conexión con el flujo de SST';
     prueba.generales.ubicacion = 'Sin ubicación (prueba)';
     prueba.generales.supervisor = st.usuario.nombre;
     prueba.pasos = [{ paso: 'Prueba', evento: '—', critico: 'no', medidas: '—', responsable: st.usuario.nombre }];
     window.Envio.enviar(prueba, 'prueba').then(function (r) {
-      UI.aviso(r.resultado === 'enviado' ? 'Prueba enviada: revisa el correo y la carpeta de SST.' : r.detalle, r.resultado === 'enviado' ? 'ok' : 'mal');
+      UI.aviso(r.detalle, ['prueba', 'confirmado'].indexOf(r.resultado) >= 0 ? 'ok' : 'mal');
     });
   }
 
@@ -799,13 +822,19 @@
       if (p === 'verificacion' || p === 'cierre') return ir('detalle');
       ir('inicio');
     });
-    window.addEventListener('beforeunload', function () { if (st.doc) window.Store.guardar(st.doc); });
+    window.addEventListener('unhandledrejection', function (ev) {
+      errorGuardado(); ev.preventDefault();
+    });
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') guardarYa().catch(errorGuardado); });
+    window.addEventListener('pagehide', function () { guardarYa().catch(errorGuardado); });
 
     window.Store.init().then(function (m) {
       st.motor = m;
       $('#motor').textContent = 'Copia en este celular · ' + m;
-      return Promise.all([window.Store.pref('usuario'), window.Store.pref('flujoUrl')]);
+      return Promise.all([window.Store.pref('usuario'), window.Store.pref('flujoUrl_v05')]);
     }).then(function (r) {
+      // La URL anterior contenía una clave publicada; no se reutiliza.
+      window.Store.pref('flujoUrl', '').catch(errorGuardado);
       if (r[1]) C.flujoUrl = r[1];
       st.usuario = r[0] || null;
       ir(st.usuario ? 'inicio' : 'usuario');
