@@ -10,7 +10,8 @@
 
   var st = {
     usuario: null, pantalla: 'usuario', doc: null, paso: 0,
-    errores: [], lista: [], filtroTipo: '', pads: {}, volverA: 'inicio'
+    errores: [], lista: [], filtroTipo: '', pads: {}, volverA: 'inicio',
+    sstAutorizado: false, claveAjustesHash: ''
   };
   var app, titulo, sub, atras, tGuardar = null;
 
@@ -47,6 +48,7 @@
         return;
       }
     }
+    if (st.pantalla === 'ajustes' && p !== 'ajustes') st.sstAutorizado = false;
     st.pantalla = p; if (paso !== undefined) st.paso = paso;
     st.errores = []; window.scrollTo(0, 0); render();
   }
@@ -90,7 +92,7 @@
   /* ============================ Render ============================== */
   function render() {
     var v = {
-      usuario: vUsuario, inicio: vInicio, historial: vHistorial, elegirATS: vElegirATS,
+      usuario: vUsuario, accesoSST: vAccesoSST, inicio: vInicio, historial: vHistorial, elegirATS: vElegirATS,
       form: vForm, revision: vRevision, firmas: vFirmas, detalle: vDetalle,
       verificacion: vVerificacion, cierre: vCierre, ajustes: vAjustes
     };
@@ -104,6 +106,7 @@
     var d = st.doc, pasos = d ? M.pasos(d) : [];
     var m = {
       usuario: ['Bienvenido', '¿Quién usa este celular?'],
+      accesoSST: ['Área SST', 'Acceso restringido a Ajustes'],
       inicio: ['ATS y PETAR', 'B&P · Sede ' + C.sede],
       historial: ['Historial', 'ATS y PETAR registrados'],
       elegirATS: ['Nuevo PETAR', 'ATS de referencia'],
@@ -134,6 +137,29 @@
       campo('Cargo *', '<input id="uCargo" type="text" value="' + esc(u.cargo) + '" placeholder="Ej. Supervisor de planchado y pintura">') +
       '<button class="btn btn--principal btn--ancho" data-accion="guardar-usuario">Continuar</button>' +
       '<p class="nota">Piloto operativo. La identificación sigue siendo local y no equivale a inicio de sesión corporativo.</p>' +
+      '<h2 class="h-seccion">Área SST</h2>' +
+      '<p class="nota">Acceso restringido para configurar la conexión y los ajustes de este dispositivo.</p>' +
+      '<button class="btn btn--fantasma btn--ancho" data-accion="ir-acceso-sst">Ingresar como Área SST</button>' +
+      '</section>';
+  }
+
+  function hashClaveAjustes(clave) {
+    if (!window.crypto || !window.crypto.subtle || !window.TextEncoder) return Promise.reject(new Error('Este navegador no permite proteger la clave local.'));
+    var datos = new window.TextEncoder().encode('sst-ajustes-v06|' + clave);
+    return window.crypto.subtle.digest('SHA-256', datos).then(function (buf) {
+      return Array.prototype.map.call(new Uint8Array(buf), function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+    });
+  }
+
+  function vAccesoSST() {
+    var existe = !!st.claveAjustesHash;
+    app.innerHTML = '<section class="bloque">' + marcaHTML() +
+      '<h2 class="h-seccion">' + (existe ? 'Acceso Área SST' : 'Crear acceso Área SST') + '</h2>' +
+      '<p class="intro">' + (existe ? 'Ingresa la clave SST de este dispositivo para abrir Ajustes.' : 'Primera configuración: crea una clave local para proteger Ajustes en este dispositivo.') + '</p>' +
+      campo(existe ? 'Clave SST *' : 'Nueva clave SST *', '<input id="sstClave" type="password" autocomplete="' + (existe ? 'current-password' : 'new-password') + '" placeholder="Mínimo 6 caracteres">') +
+      (existe ? '' : campo('Confirmar clave SST *', '<input id="sstClave2" type="password" autocomplete="new-password" placeholder="Repite la clave">')) +
+      '<button class="btn btn--principal btn--ancho" data-accion="' + (existe ? 'validar-clave-sst' : 'crear-clave-sst') + '">' + (existe ? 'Ingresar a Ajustes' : 'Crear clave e ingresar') + '</button>' +
+      '<p class="nota">Esta clave protege solo el acceso local a Ajustes. Es distinta de la Clave del área que usa Power Automate.</p>' +
       '</section>';
   }
 
@@ -546,6 +572,7 @@
 
   /* ============================ Ajustes ============================= */
   function vAjustes() {
+    if (!st.sstAutorizado) { st.pantalla = 'accesoSST'; return vAccesoSST(); }
     app.innerHTML = '<section class="bloque">' +
       '<h2 class="h-seccion">Envío a SST (Power Automate)</h2>' +
       '<p class="intro">La URL y la clave se guardan únicamente en este dispositivo. No las publiques en el repositorio.</p>' +
@@ -555,6 +582,11 @@
       '<button class="btn btn--principal btn--ancho" data-accion="guardar-conexion">Guardar conexión</button>' +
       '<button class="btn btn--fantasma btn--ancho" data-accion="probar-envio"' + (window.Envio.configurado() ? '' : ' disabled') + '>Enviar un documento de prueba</button>' +
       '<p class="nota">La confirmación solo se muestra cuando el flujo devuelve una respuesta válida y coincidente. Un envío sin confirmar no se reintenta automáticamente.</p>' +
+      '<h2 class="h-seccion">Seguridad de Ajustes</h2>' +
+      '<p class="nota">Desde aquí SST puede cambiar la clave que permite entrar a esta pantalla.</p>' +
+      campo('Nueva clave SST', '<input id="sstNuevaClave" type="password" autocomplete="new-password" placeholder="Mínimo 6 caracteres">') +
+      campo('Confirmar nueva clave SST', '<input id="sstNuevaClave2" type="password" autocomplete="new-password" placeholder="Repite la nueva clave">') +
+      '<button class="btn btn--fantasma btn--ancho" data-accion="cambiar-clave-sst">Cambiar clave de acceso SST</button>' +
       '<h2 class="h-seccion">Este celular</h2><div class="datos">' +
       '<div class="dato"><span>Almacenamiento</span><strong>' + esc(st.motor) + '</strong></div>' +
       '<div class="dato"><span>Versión</span><strong>' + esc(C.version) + '</strong></div></div></section>';
@@ -639,7 +671,28 @@
         break;
       case 'cambiar-usuario': ir('usuario'); break;
       case 'ir-historial': ir('historial'); break;
-      case 'ir-ajustes': ir('ajustes'); break;
+      case 'ir-acceso-sst':
+        st.volverA = st.usuario ? 'inicio' : 'usuario'; ir('accesoSST'); break;
+      case 'ir-ajustes':
+        st.volverA = st.usuario ? 'inicio' : 'usuario'; ir(st.sstAutorizado ? 'ajustes' : 'accesoSST'); break;
+      case 'crear-clave-sst':
+        var claveNueva = $('#sstClave').value, claveNueva2 = $('#sstClave2').value;
+        if (claveNueva.length < 6) { UI.aviso('La clave SST debe tener al menos 6 caracteres.', 'mal'); return; }
+        if (claveNueva !== claveNueva2) { UI.aviso('Las claves SST no coinciden.', 'mal'); return; }
+        hashClaveAjustes(claveNueva).then(function (hash) {
+          st.claveAjustesHash = hash;
+          return window.Store.pref('claveAjustesHash_v06', hash);
+        }).then(function () { st.sstAutorizado = true; UI.aviso('Clave SST creada', 'ok'); ir('ajustes'); })
+          .catch(function (e) { UI.aviso(e.message || 'No se pudo crear la clave SST.', 'mal'); });
+        break;
+      case 'validar-clave-sst':
+        var claveIngreso = $('#sstClave').value;
+        if (!claveIngreso) { UI.aviso('Ingresa la clave SST.', 'mal'); return; }
+        hashClaveAjustes(claveIngreso).then(function (hash) {
+          if (hash !== st.claveAjustesHash) { UI.aviso('Clave SST incorrecta.', 'mal'); return; }
+          st.sstAutorizado = true; ir('ajustes');
+        }).catch(function (e) { UI.aviso(e.message || 'No se pudo validar la clave SST.', 'mal'); });
+        break;
       case 'filtro': st.filtroTipo = b.dataset.valor; render(); break;
       case 'nuevo-ats': nuevo('ATS'); break;
       case 'nuevo-petar': window.Store.todos().then(function (l) { st.lista = l; ir('elegirATS'); }); break;
@@ -744,6 +797,16 @@
         ]).then(function () { UI.aviso(window.Envio.configurado() ? 'Conexión guardada' : 'Falta URL o clave del área'); render(); });
         break;
       case 'probar-envio': probarEnvio(); break;
+      case 'cambiar-clave-sst':
+        var nuevaSst = $('#sstNuevaClave').value, nuevaSst2 = $('#sstNuevaClave2').value;
+        if (nuevaSst.length < 6) { UI.aviso('La nueva clave SST debe tener al menos 6 caracteres.', 'mal'); return; }
+        if (nuevaSst !== nuevaSst2) { UI.aviso('Las nuevas claves SST no coinciden.', 'mal'); return; }
+        hashClaveAjustes(nuevaSst).then(function (hash) {
+          st.claveAjustesHash = hash;
+          return window.Store.pref('claveAjustesHash_v06', hash);
+        }).then(function () { UI.aviso('Clave de acceso SST actualizada', 'ok'); render(); })
+          .catch(function (e) { UI.aviso(e.message || 'No se pudo cambiar la clave SST.', 'mal'); });
+        break;
     }
   }
 
@@ -853,6 +916,7 @@
       if (p === 'revision') return ir('form', M.pasos(st.doc).length - 1);
       if (p === 'firmas') return ir('revision');
       if (p === 'verificacion' || p === 'cierre') return ir('detalle');
+      if (p === 'accesoSST' || p === 'ajustes') return ir(st.volverA || (st.usuario ? 'inicio' : 'usuario'));
       ir('inicio');
     });
     window.addEventListener('unhandledrejection', function (ev) {
@@ -864,12 +928,13 @@
     window.Store.init().then(function (m) {
       st.motor = m;
       $('#motor').textContent = 'Copia en este celular · ' + m;
-      return Promise.all([window.Store.pref('usuario'), window.Store.pref('flujoUrl_v05'), window.Store.pref('claveArea_v06')]);
+      return Promise.all([window.Store.pref('usuario'), window.Store.pref('flujoUrl_v05'), window.Store.pref('claveArea_v06'), window.Store.pref('claveAjustesHash_v06')]);
     }).then(function (r) {
       // La URL anterior contenía una clave publicada; no se reutiliza.
       window.Store.pref('flujoUrl', '').catch(errorGuardado);
       if (r[1]) C.flujoUrl = r[1];
       if (r[2]) C.claveArea = r[2];
+      st.claveAjustesHash = r[3] || '';
       st.usuario = r[0] || null;
       ir(st.usuario ? 'inicio' : 'usuario');
     });
