@@ -1,6 +1,6 @@
 /* =====================================================================
    DOCUMENTO PDF — window.DocPDF · v07
-   Genera el ATS (FOR-GHS-001) y el PETAR (FOR-GHS-002) en A4.
+   Genera el ATS y el PETAR en A4.
    Todas las celdas ajustan su alto al texto: nada se corta.
    ===================================================================== */
 (function () {
@@ -62,7 +62,7 @@
     var xC = M + U - 44;
     doc.line(xC, M, xC, M + h);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(6.8);
-    doc.text('Código: ' + cfg.codigo, xC + 2, M + 4);
+    doc.text(d.tipo === 'PETAR' ? 'Documento: PETAR' : 'Código: ' + cfg.codigo, xC + 2, M + 4);
     doc.text('Versión: ' + cfg.versionFormato, xC + 2, M + 7.2);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(primera ? 8 : 7);
     doc.setFontSize(Math.min(primera ? 8 : 7, 7 * 40 / Math.max(40, doc.getTextWidth(d.numero))));
@@ -322,7 +322,7 @@
     var L = new Lienzo(d), s = d.descripcion, idx = indiceFotos(d, fotos);
     L.banda('I. DESCRIPCIÓN DEL TRABAJO');
     L.fila([['Fecha', fmtF(s.fecha), 0.2], ['Hora inicial', s.horaInicio, 0.15], ['Hora final', s.horaFin, 0.15], ['ATS de referencia', s.atsRef, 0.25], ['Sede', s.sede, 0.25]]);
-    L.fila([['Ejecuta (Grupo Pana / Contratista)', s.ejecutaTipo + ' — ' + s.ejecutaNombre, 1]]);
+    L.fila([['Área de Grupo Pana', s.ejecutaNombre, 1]]);
     L.fila([['Descripción de la tarea', s.tarea, 1]]);
     L.fila([['Lugar específico de la tarea', s.lugar, 1]]);
     L.casillas(C.petar.tipos.map(function (t) { return [t.label, !!d.tipos[t.id]]; }), 4);
@@ -350,9 +350,8 @@
       L.banda('V. TRABAJO DE ALTO RIESGO — TRABAJO EN CALIENTE (SUPERVISOR DEL TRABAJO)');
       L.tabla([{ t: 'Verificación', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
         C.petar.caliente.map(function (r) { return [r.label, sn(d.caliente[r.id])]; }));
-      L.nota('Controles adicionales sugeridos (D.S. 42-F). No forman parte del formato FOR-GHS-002; se incluyen para validación de SST.');
-      L.tabla([{ t: 'Control adicional', w: 0.7 }, { t: 'Referencia', w: 0.15, a: 'center' }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
-        C.petar.adicionales.map(function (r) { return [r.label, 'D.S. 42-F ' + r.ref, sn(d.adicionales[r.id])]; }));
+      L.tabla([{ t: 'Control adicional', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
+        C.petar.adicionales.map(function (r) { return [r.label, sn(d.adicionales[r.id])]; }));
       L.sep();
     }
 
@@ -362,10 +361,9 @@
         C.petar.altura.map(function (r) { return [r.label, sn(d.altura[r.id])]; }));
       L.nota(C.petar.notaAltura);
       if (d.escaleras.usa === 'si') {
-        L.nota('Uso de escaleras: bloque sugerido, no forma parte del formato FOR-GHS-002. Se incluye para validación de SST.');
-        L.tabla([{ t: 'Control', w: 0.62 }, { t: 'Origen', w: 0.23, a: 'center' }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
+        L.tabla([{ t: 'Control', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
           C.petar.escaleras.map(function (r) {
-            return [r.label, r.origen === 'DS 42-F' ? 'D.S. 42-F ' + r.ref : 'Estándar interno', sn(d.escaleras[r.id])];
+            return [r.label, sn(d.escaleras[r.id])];
           }));
       } else {
         L.fila([['Uso de escalera', d.escaleras.usa === 'no' ? 'No se usará escalera' : 'Sin responder', 1]]);

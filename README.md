@@ -1,15 +1,15 @@
 # ATS y PETAR — Grupo Pana, sede Ate
 
-## v07 integrada · piloto operativo
+## v07.1 · piloto operativo
 
-Versión que integra la ampliación funcional de Claude sobre v07 con el acceso separado de **Usuario / Área SST** y una arquitectura de **evidencias fotográficas optimizada para celulares**.
+Versión operativa que integra las funciones v07, el acceso separado de **Usuario / Área SST** y evidencias fotográficas optimizadas para celulares.
 
 ### Funciones principales
 
-- ATS FOR-GHS-001 y PETAR FOR-GHS-002.
+- ATS y PETAR para trabajos de alto riesgo.
 - PETAR habilitado para **trabajo en caliente**, **trabajo en altura**, **materiales peligrosos no rutinarios** y **trabajo no rutinario**. Los demás tipos siguen desactivados.
-- Trabajo en altura: controles del FOR-GHS-002, bloque de escaleras sugerido y controles del D.S. 42-F incorporados por Claude.
-- Materiales peligrosos: productos utilizados, inflamabilidad, controles del FOR-GHS-002 y regla crítica para combinación de trabajo en caliente + productos inflamables.
+- Trabajo en altura: controles de trabajo, acceso, protección contra caídas y uso de escaleras.
+- Materiales peligrosos: productos utilizados, inflamabilidad y controles de exposición.
 - Si caliente + inflamable están activos, la autorización exige LEL registrado en 0 % según el criterio definido para este piloto.
 - Supervisor del trabajo y ejecutante deben ser personas distintas en la autorización.
 - Los PETAR antiguos se normalizan al abrirse para conservar compatibilidad.
@@ -40,10 +40,10 @@ Esta barrera es local y no sustituye autenticación corporativa ni roles adminis
 
 ## Selección del tipo de PETAR
 
-Un PETAR nuevo ya **no nace automáticamente como trabajo en caliente**.
+Un PETAR solo puede crearse desde un **ATS previamente registrado en el mismo dispositivo**.
 
-- Si se crea desde un ATS registrado en el dispositivo, se heredan los permisos compatibles actualmente: **Caliente** y/o **Altura**.
-- Si se crea sin ATS vinculado, el usuario debe seleccionar el tipo de trabajo.
+- Se eliminó la opción de continuar sin vincular ATS.
+- Al seleccionar el ATS, se copian tarea, lugar, personal y permisos compatibles como **Caliente** y/o **Altura**.
 - Al activar un tipo, la app sugiere los EPP asociados; pueden ajustarse según la tarea real.
 - Al desactivar Caliente, Altura o Materiales peligrosos, las evidencias fotográficas vinculadas a ese tipo se desvinculan y sus Blobs se eliminan del almacenamiento local.
 
@@ -107,7 +107,7 @@ El envío mantiene el contrato operativo de v06 y usa `version: "v07"`:
 - estados confirmado, sin confirmar, rechazado y pendiente;
 - sin reintento automático cuando la recepción no puede demostrarse.
 
-La URL del flujo se guarda localmente en `flujoUrl_v05` y la clave del área en `claveArea_v06`. No deben escribirse URLs reales ni claves reales en el repositorio.
+La URL del flujo se guarda localmente en `flujoUrl_v05` y la clave del área en `claveArea_v06`. Son configuraciones **por dispositivo y navegador**: configurarlas en una PC no las sincroniza automáticamente con un celular. No deben escribirse URLs reales ni claves reales en el repositorio.
 
 ## Pruebas
 
@@ -149,7 +149,7 @@ Antes de considerar la versión definitiva deben verificarse en celulares reales
 
 - Sin inicio de sesión corporativo.
 - Sin roles vinculados a identidad corporativa real.
-- Sin sincronización entre dispositivos.
+- Sin sincronización automática entre dispositivos; cada dispositivo conserva su propia configuración y documentos locales.
 - Sin correlativo central.
 - Fecha y hora dependen del dispositivo.
 - La clave SST y la clave del área son barreras locales/técnicas del piloto, no controles equivalentes a autenticación corporativa.

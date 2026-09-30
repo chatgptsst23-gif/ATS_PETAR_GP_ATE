@@ -1,4 +1,4 @@
-/* v07 — Ejecutar: node tests/regresion.cjs. No realiza solicitudes de red real. */
+/* v07.1 — Ejecutar: node tests/regresion.cjs. No realiza solicitudes de red real. */
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
@@ -29,7 +29,7 @@ const user={nombre:'Usuario Prueba',cargo:'Supervisor'};
 const respuesta=(status,obj)=>({status,ok:status>=200&&status<300,text:async()=>typeof obj==='string'?obj:JSON.stringify(obj)});
 const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CLAVE_FICTICIA_V06';};
 (async()=>{
-  assert.equal(C.flujoUrl,''); assert.equal(C.claveArea,''); assert.equal(C.modoPrueba,false); assert.equal(C.version,'v07 (piloto integrado)');
+  assert.equal(C.flujoUrl,''); assert.equal(C.claveArea,''); assert.equal(C.modoPrueba,false); assert.equal(C.version,'v07.1 (piloto operativo)');
 
   const p=M.nuevoPETAR('PETAR-PRUEBA',user);
   assert.equal(p.prueba,false); p.tipos.caliente=true;
@@ -123,8 +123,6 @@ const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CL
   assert.equal(tipos.altura,true);assert.equal(tipos.peligrosos,true);assert.equal(tipos.caliente,true);assert.equal(tipos.confinado,false);
   assert.equal(C.petar.fotos.maxTotal,8);assert.equal(C.petar.fotos.anchoMaximoPx,1024);
 
-  const sinAts=M.nuevoPETAR('PETAR-V07-SIN-ATS',user);
-  assert.equal(!!sinAts.tipos.caliente,false);assert.equal(!!sinAts.tipos.altura,false);
   const atsRef=M.nuevoATS('ATS-REF',user);atsRef.permisos.caliente=false;atsRef.permisos.altura=true;
   const desdeAts=M.nuevoPETAR('PETAR-V07-DESDE-ATS',user,atsRef);
   assert.equal(desdeAts.tipos.altura,true);assert.equal(desdeAts.tipos.caliente,false);
@@ -188,10 +186,12 @@ const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CL
 
   const fuenteApp=fs.readFileSync(path.join(root,'app.js'),'utf8');
   assert(fuenteApp.includes('Acceso Área SST'));assert(fuenteApp.includes('claveAjustesHash_v07'));assert(fuenteApp.includes('canvasBlob'));
+  assert(!fuenteApp.includes('Continuar sin vincular'));assert(!fuenteApp.includes("'Contratista'"));assert(!fuenteApp.includes('D.S. 42-F'));assert(!fuenteApp.includes('FOR-GHS-002'));
+  const fuentePdf=fs.readFileSync(path.join(root,'pdf.js'),'utf8');assert(!fuentePdf.includes('D.S. 42-F'));assert(!fuentePdf.includes('FOR-GHS-002'));
   assert(!fuenteApp.includes('toDataURL('));assert(!fuenteApp.includes('readAsDataURL'));
   const fuenteDatos=fs.readFileSync(path.join(root,'datos.js'),'utf8');
   assert(fuenteDatos.includes("FOTOS = 'fotos'"));assert(fuenteDatos.includes('fotosSoportadas'));
   assert(fs.readFileSync(path.join(root,'modelo.js'),'utf8').includes('lideradoPor: usuario.nombre'));
 
-  console.log('OK: v07 integrada (Claude + Usuario/SST + fotos optimizadas) y regresiones v06/v05.');
+  console.log('OK: v07.1 operativa (ATS obligatorio + solo Grupo Pana + UI/PDF sin referencias normativas) y regresiones v07/v06/v05.');
 })().catch(e=>{console.error(e);process.exitCode=1});

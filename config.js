@@ -1,15 +1,12 @@
 /* =====================================================================
-   CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v07
-   ATS (FOR-GHS-001 v01) y PETAR (FOR-GHS-002 v01) — sede Ate, área B&P
+   CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v07.1
+   ATS y PETAR — sede Ate, área B&P
    ---------------------------------------------------------------------
    Todo el contenido de los formatos vive aquí. Cambiar una pregunta,
    su exigencia o un catálogo no requiere tocar la lógica.
 
    nivel:  'critico'   -> un "No" impide autorizar el PETAR
            'requerido' -> debe responderse; un "No" exige observación
-   origen: 'FOR-GHS-002' -> pregunta del formato vigente de Grupo Pana
-           'DS 42-F'     -> control adicional sugerido, recogido del D.S. 42-F
-                            (NO forma parte del formato vigente; por validar con SST)
    ===================================================================== */
 
 window.SST_CONFIG = {
@@ -18,7 +15,7 @@ window.SST_CONFIG = {
   sistema: 'Gestión Digital SST',
   sede: 'Ate',
   areaPorDefecto: 'Planchado y pintura (B&P)',
-  version: 'v07 (piloto integrado)',
+  version: 'v07.1 (piloto operativo)',
 
   /* URL del flujo de Power Automate ("Cuando se recibe una solicitud HTTP").
      Vacía = la app funciona igual, pero no envía correo ni guarda en SharePoint. */
@@ -135,53 +132,53 @@ window.SST_CONFIG = {
 
     /* Sección V — Trabajo en caliente (supervisor del trabajo) */
     caliente: [
-      { id: 'c_radio', label: '¿Se ha alejado y/o cubierto el material inflamable en un radio de 12 metros?', nivel: 'critico', origen: 'FOR-GHS-002', evidencia: 'Área despejada en radio de 12 m' },
-      { id: 'c_extintor', label: '¿Se cuenta con un extintor de PQS de no menos de 9 kg?', nivel: 'critico', origen: 'FOR-GHS-002', evidencia: 'Extintor PQS en el punto de trabajo' },
-      { id: 'c_lel', label: 'En caso de ser un espacio cerrado: ¿se monitoreó el lugar de trabajo y el LEL (límite inferior de explosividad) es igual a 0%? ¿El área está ventilada?', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true },
-      { id: 'c_paredes', label: 'En caso el trabajo se realice sobre paredes o techos: ¿se identificó que la construcción no es combustible y no presenta revestimiento combustible por ningún lado?', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true },
-      { id: 'c_herramientas', label: '¿Las herramientas eléctricas y la máquina de soldar cuentan con cables y conexiones en buen estado, libres de empalmes, guardas de protección y puestas a tierra?', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true, evidencia: 'Equipo de soldar o cilindros de oxicorte' },
-      { id: 'c_biombos', label: '¿Se cuenta con biombos para realizar el trabajo?', nivel: 'critico', origen: 'FOR-GHS-002', evidencia: 'Biombos instalados' }
+      { id: 'c_radio', label: '¿Se ha alejado y/o cubierto el material inflamable en un radio de 12 metros?', nivel: 'critico', evidencia: 'Área despejada en radio de 12 m' },
+      { id: 'c_extintor', label: '¿Se cuenta con un extintor de PQS de no menos de 9 kg?', nivel: 'critico', evidencia: 'Extintor PQS en el punto de trabajo' },
+      { id: 'c_lel', label: 'En caso de ser un espacio cerrado: ¿se monitoreó el lugar de trabajo y el LEL (límite inferior de explosividad) es igual a 0%? ¿El área está ventilada?', nivel: 'critico', admiteNA: true },
+      { id: 'c_paredes', label: 'En caso el trabajo se realice sobre paredes o techos: ¿se identificó que la construcción no es combustible y no presenta revestimiento combustible por ningún lado?', nivel: 'critico', admiteNA: true },
+      { id: 'c_herramientas', label: '¿Las herramientas eléctricas y la máquina de soldar cuentan con cables y conexiones en buen estado, libres de empalmes, guardas de protección y puestas a tierra?', nivel: 'critico', admiteNA: true, evidencia: 'Equipo de soldar o cilindros de oxicorte' },
+      { id: 'c_biombos', label: '¿Se cuenta con biombos para realizar el trabajo?', nivel: 'critico', evidencia: 'Biombos instalados' }
     ],
 
-    /* Controles adicionales sugeridos — NO están en FOR-GHS-002 (por validar con SST) */
+    /* Controles adicionales del trabajo en caliente */
     adicionales: [
-      { id: 'a_pisos', label: 'Piso del punto de soldadura sin charcos ni humedad', nivel: 'requerido', origen: 'DS 42-F', ref: 'Art. 255' },
-      { id: 'a_cilindros', label: 'Cilindros de oxicorte en posición vertical y sujetos con cadena o collar', nivel: 'requerido', origen: 'DS 42-F', ref: 'Art. 265 b, c, e' },
-      { id: 'a_oxigeno', label: 'Cilindro y accesorios de oxígeno sin grasa ni aceite (no manipular con guantes grasientos)', nivel: 'requerido', origen: 'DS 42-F', ref: 'Art. 265 j' },
-      { id: 'a_mesa', label: 'Piezas pequeñas o medianas sobre mesa o banco incombustible, no sobre piso de concreto', nivel: 'requerido', origen: 'DS 42-F', ref: 'Art. 262' }
+      { id: 'a_pisos', label: 'Piso del punto de soldadura sin charcos ni humedad', nivel: 'requerido' },
+      { id: 'a_cilindros', label: 'Cilindros de oxicorte en posición vertical y sujetos con cadena o collar', nivel: 'requerido' },
+      { id: 'a_oxigeno', label: 'Cilindro y accesorios de oxígeno sin grasa ni aceite (no manipular con guantes grasientos)', nivel: 'requerido' },
+      { id: 'a_mesa', label: 'Piezas pequeñas o medianas sobre mesa o banco incombustible, no sobre piso de concreto', nivel: 'requerido' }
     ],
 
-    /* Sección V — Trabajo en altura (FOR-GHS-002). */
+    /* Sección V — Trabajo en altura */
     altura: [
-      { id: 'h_andamios', label: '¿Los andamios y plataformas están asegurados para evitar su caída, desmoronamiento o deslizamiento?', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true, evidencia: 'Andamio o plataforma armada' },
-      { id: 'h_anclaje', label: '¿Existen puntos de anclaje adecuados para que el trabajador se enganche?', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true, evidencia: 'Punto de anclaje o línea de vida' },
-      { id: 'h_arnes', label: '¿Cada persona que realizará el ascenso/descenso utilizará arnés y líneas de anclaje certificados y de acuerdo al estándar de la empresa?', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true, evidencia: 'Trabajador con arnés y línea de anclaje puestos' },
-      { id: 'h_capacitacion', label: '¿Cada persona ha recibido la capacitación para trabajo en altura?', nivel: 'critico', origen: 'FOR-GHS-002' },
-      { id: 'h_inspeccion', label: '¿Se ha realizado la inspección del sistema de detención de caídas (arnés y línea de anclaje: estado de correas, hebillas, ganchos, etc.)?', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true },
-      { id: 'h_aptitud', label: '¿Las personas que realizarán trabajos en altura cuentan con aptitud médica para realizar la actividad?', nivel: 'critico', origen: 'FOR-GHS-002' }
+      { id: 'h_andamios', label: '¿Los andamios y plataformas están asegurados para evitar su caída, desmoronamiento o deslizamiento?', nivel: 'critico', admiteNA: true, evidencia: 'Andamio o plataforma armada' },
+      { id: 'h_anclaje', label: '¿Existen puntos de anclaje adecuados para que el trabajador se enganche?', nivel: 'critico', admiteNA: true, evidencia: 'Punto de anclaje o línea de vida' },
+      { id: 'h_arnes', label: '¿Cada persona que realizará el ascenso/descenso utilizará arnés y líneas de anclaje certificados y de acuerdo al estándar de la empresa?', nivel: 'critico', admiteNA: true, evidencia: 'Trabajador con arnés y línea de anclaje puestos' },
+      { id: 'h_capacitacion', label: '¿Cada persona ha recibido la capacitación para trabajo en altura?', nivel: 'critico' },
+      { id: 'h_inspeccion', label: '¿Se ha realizado la inspección del sistema de detención de caídas (arnés y línea de anclaje: estado de correas, hebillas, ganchos, etc.)?', nivel: 'critico', admiteNA: true },
+      { id: 'h_aptitud', label: '¿Las personas que realizarán trabajos en altura cuentan con aptitud médica para realizar la actividad?', nivel: 'critico' }
     ],
-    notaAltura: 'Para trabajar sobre techos de vehículos, acceder desde andamio o plataforma con barandas; no pisar la carrocería. Las plataformas portátiles deben ser sólidas y con barandillas (D.S. 42-F, Arts. 1226 y 1227).',
+    notaAltura: 'Para trabajar sobre techos de vehículos, acceder desde andamio o plataforma con barandas; no pisar la carrocería. Las plataformas portátiles deben ser sólidas, estables y contar con protección contra caídas.',
 
-    /* Uso de escaleras — NO está en FOR-GHS-002. Bloque sugerido para validación de SST. */
+    /* Uso de escaleras */
     escaleras: [
-      { id: 'e_estado', label: 'Escalera en buenas condiciones e inspeccionada (peldaños, largueros y zapatas antideslizantes sin daños)', nivel: 'critico', origen: 'DS 42-F', ref: 'Art. 1221', evidencia: 'Escalera en el punto de trabajo' },
-      { id: 'e_angulo', label: 'Escalera de apoyo colocada con la base separada de la pared 1/4 de su largo', nivel: 'requerido', origen: 'DS 42-F', ref: 'Art. 1222', admiteNA: true },
-      { id: 'e_cierres', label: 'Escalera de extensión con sus dos cierres automáticos operativos', nivel: 'requerido', origen: 'DS 42-F', ref: 'Art. 1223', admiteNA: true },
-      { id: 'e_tijera', label: 'Escalera de tijera de no más de 6 m de altura', nivel: 'requerido', origen: 'DS 42-F', ref: 'Art. 1225', admiteNA: true },
-      { id: 'e_superficie', label: 'Apoyada sobre superficie firme, nivelada y seca', nivel: 'requerido', origen: 'interno' },
-      { id: 'e_contacto', label: 'Se mantienen tres puntos de contacto y no se trabaja desde los últimos peldaños', nivel: 'requerido', origen: 'interno' }
+      { id: 'e_estado', label: 'Escalera en buenas condiciones e inspeccionada (peldaños, largueros y zapatas antideslizantes sin daños)', nivel: 'critico', evidencia: 'Escalera en el punto de trabajo' },
+      { id: 'e_angulo', label: 'Escalera de apoyo colocada con la base separada de la pared 1/4 de su largo', nivel: 'requerido', admiteNA: true },
+      { id: 'e_cierres', label: 'Escalera de extensión con sus dos cierres automáticos operativos', nivel: 'requerido', admiteNA: true },
+      { id: 'e_tijera', label: 'Escalera de tijera de no más de 6 m de altura', nivel: 'requerido', admiteNA: true },
+      { id: 'e_superficie', label: 'Apoyada sobre superficie firme, nivelada y seca', nivel: 'requerido' },
+      { id: 'e_contacto', label: 'Se mantienen tres puntos de contacto y no se trabaja desde los últimos peldaños', nivel: 'requerido' }
     ],
 
-    /* Sección V — Trabajo con materiales peligrosos (FOR-GHS-002). Solo tareas no rutinarias:
+    /* Sección V — Trabajo con materiales peligrosos. Solo tareas no rutinarias:
        la aplicación rutinaria de pintura en cabina u horno se gestiona con IPERC, PETS, HDS y ATS. */
     peligrosos: [
-      { id: 'q_ventilacion', label: '¿El lugar donde se realizará el trabajo cuenta con ventilación adecuada?', nivel: 'critico', origen: 'FOR-GHS-002', evidencia: 'Ventilación o extracción funcionando' },
-      { id: 'q_hds', label: '¿Los trabajadores conocen el contenido de las Hojas de Seguridad (HDS/MSDS) de los materiales que usan y estas se encuentran en el lugar de trabajo?', nivel: 'critico', origen: 'FOR-GHS-002' },
-      { id: 'q_envases', label: '¿Los envases son originales y están correctamente identificados y rotulados con el nombre del producto?', nivel: 'critico', origen: 'FOR-GHS-002', evidencia: 'Envases rotulados y HDS disponible' },
-      { id: 'q_nfpa', label: '¿El producto cuenta con la identificación del rombo de la NFPA?', nivel: 'critico', origen: 'FOR-GHS-002' },
-      { id: 'q_atmosfera', label: '¿Se ha realizado la evaluación o medición de atmósferas peligrosas y el área se encuentra ventilada? (N/A: área abierta y ventilada, sin equipo de medición)', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true },
-      { id: 'q_epp', label: '¿El trabajador que manipulará los productos químicos tiene sus EPP correspondientes según lo indica la Hoja de Seguridad?', nivel: 'critico', origen: 'FOR-GHS-002' },
-      { id: 'q_respiradores', label: '¿Los respiradores y filtros son los adecuados para el riesgo expuesto al trabajador?', nivel: 'critico', origen: 'FOR-GHS-002', evidencia: 'Trabajador con EPP respiratorio' }
+      { id: 'q_ventilacion', label: '¿El lugar donde se realizará el trabajo cuenta con ventilación adecuada?', nivel: 'critico', evidencia: 'Ventilación o extracción funcionando' },
+      { id: 'q_hds', label: '¿Los trabajadores conocen el contenido de las Hojas de Seguridad (HDS/MSDS) de los materiales que usan y estas se encuentran en el lugar de trabajo?', nivel: 'critico' },
+      { id: 'q_envases', label: '¿Los envases son originales y están correctamente identificados y rotulados con el nombre del producto?', nivel: 'critico', evidencia: 'Envases rotulados y HDS disponible' },
+      { id: 'q_nfpa', label: '¿El producto cuenta con la identificación del rombo de la NFPA?', nivel: 'critico' },
+      { id: 'q_atmosfera', label: '¿Se ha realizado la evaluación o medición de atmósferas peligrosas y el área se encuentra ventilada? (N/A: área abierta y ventilada, sin equipo de medición)', nivel: 'critico', admiteNA: true },
+      { id: 'q_epp', label: '¿El trabajador que manipulará los productos químicos tiene sus EPP correspondientes según lo indica la Hoja de Seguridad?', nivel: 'critico' },
+      { id: 'q_respiradores', label: '¿Los respiradores y filtros son los adecuados para el riesgo expuesto al trabajador?', nivel: 'critico', evidencia: 'Trabajador con EPP respiratorio' }
     ],
 
     /* EPP que se marca automáticamente al activar un tipo de trabajo (se puede desmarcar). */

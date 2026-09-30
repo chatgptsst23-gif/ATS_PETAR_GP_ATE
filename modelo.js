@@ -162,6 +162,7 @@
       d.peligrosos = d.peligrosos || {};
       d.quimicos = d.quimicos || { productos: '', inflamable: '', lel: '' };
       d.evidencias = d.evidencias || {};
+      if (d.estado === 'BORRADOR' && d.descripcion) d.descripcion.ejecutaTipo = 'Grupo Pana';
       d.vigias = d.vigias || { caliente: firmante(), altura: firmante() };
       d.vigias.caliente = Object.assign(firmante(), d.vigias.caliente || {});
       d.vigias.altura = Object.assign(firmante(), d.vigias.altura || {});
@@ -282,7 +283,7 @@
         var ini = aFecha(s.fecha, s.horaInicio), fin = aFecha(s.fecha, s.horaFin);
         if (ini && fin && fin <= ini) e.push('La hora final debe ser posterior a la hora inicial.');
         req(s.atsRef, 'Indica el ATS de referencia.');
-        req(s.ejecutaNombre, 'Indica el área de Grupo Pana o la contratista que ejecuta.');
+        req(s.ejecutaNombre, 'Indica el área de Grupo Pana que ejecuta.');
         req(s.tarea, 'Describe la tarea.');
         req(s.lugar, 'Indica el lugar específico de la tarea.');
         if (!Object.keys(d.tipos).some(function (k) { return d.tipos[k]; })) e.push('Marca al menos un tipo de trabajo.');
@@ -443,7 +444,7 @@
       var filas = '';
       if (d.tipo === 'ATS') {
         var g = d.generales;
-        filas = f('Tarea', g.tarea) + f('Ubicación', g.ubicacion) + f('Área / contratista', g.areaContratista) +
+        filas = f('Tarea', g.tarea) + f('Ubicación', g.ubicacion) + f('Área de Grupo Pana', g.areaContratista) +
           f('Fecha y hora', g.fecha + ' ' + g.hora) + f('Liderado por', g.lideradoPor) + f('Supervisor', g.supervisor) +
           f('Personal', d.personal.map(function (x) { return x.nombre; }).join(', ')) +
           f('Pasos críticos', d.pasos.filter(function (p) { return p.critico === 'si'; }).length + ' de ' + d.pasos.length);
@@ -451,7 +452,7 @@
         var s = d.descripcion;
         filas = f('Tarea', s.tarea) + f('Lugar', s.lugar) + f('Tipo de trabajo', Modelo.tiposTexto(d)) +
           f('Fecha / horario', s.fecha + ' · ' + s.horaInicio + ' a ' + s.horaFin) + f('ATS de referencia', s.atsRef) +
-          f('Ejecuta', s.ejecutaTipo + ' — ' + s.ejecutaNombre) +
+          f('Área de Grupo Pana', s.ejecutaNombre) +
           f('Participantes', d.participantes.map(function (x) { return x.nombre; }).join(', ')) +
           f('Supervisor del trabajo', d.autorizacion.supervisor.nombre) + f('Responsable del área', d.autorizacion.area.nombre) +
           f('Estado', Modelo.etiquetaEstado(Modelo.estadoVisible(d)));
