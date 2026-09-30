@@ -1,5 +1,5 @@
 /* =====================================================================
-   APLICACIÓN — Grupo Pana · Gestión Digital SST · v03
+   APLICACIÓN — Grupo Pana · Gestión Digital SST · v06
    ATS y PETAR de trabajo en caliente. Pantallas, navegación y acciones.
    ===================================================================== */
 (function () {
@@ -133,7 +133,7 @@
       campo('Nombres y apellidos *', '<input id="uNombre" type="text" autocomplete="name" value="' + esc(u.nombre) + '" placeholder="Ej. María Salazar Torres">') +
       campo('Cargo *', '<input id="uCargo" type="text" value="' + esc(u.cargo) + '" placeholder="Ej. Supervisor de planchado y pintura">') +
       '<button class="btn btn--principal btn--ancho" data-accion="guardar-usuario">Continuar</button>' +
-      '<p class="nota">Versión de demostración. En producción, el usuario vendrá del inicio de sesión corporativo.</p>' +
+      '<p class="nota">Piloto operativo. La identificación sigue siendo local y no equivale a inicio de sesión corporativo.</p>' +
       '</section>';
   }
 
@@ -145,7 +145,7 @@
       var petarVig = l.filter(function (d) { return d.tipo === 'PETAR' && M.estadoVisible(d) === 'AUTORIZADO'; });
       var vencidos = l.filter(function (d) { return M.estadoVisible(d) === 'VENCIDO'; });
       var atsHoy = l.filter(function (d) { return d.tipo === 'ATS' && d.estado !== 'BORRADOR' && d.generales.fecha === M.hoy(); });
-      var pend = l.filter(function (d) { var e = window.Envio.ultimo(d); return e && (e.resultado === 'pendiente' || e.resultado === 'error'); });
+      var pend = l.filter(function (d) { var e = window.Envio.ultimo(d); return e && ['pendiente', 'no_confirmado', 'rechazado', 'error'].indexOf(e.resultado) >= 0; });
       var borr = l.filter(function (d) { return d.estado === 'BORRADOR'; });
 
       app.innerHTML = '<section class="bloque">' + marcaHTML() +
@@ -168,13 +168,19 @@
   }
   function cifra(n, t) { return '<div class="cifra"><strong>' + n + '</strong><span>' + esc(t) + '</span></div>'; }
 
+  function textoEnvio(e) {
+    if (!e) return '';
+    return ({ confirmado: 'confirmado ✓', no_confirmado: 'sin confirmar', enviado: 'sin confirmar',
+      rechazado: 'rechazado', pendiente: 'pendiente', error: 'pendiente', sin_flujo: 'pendiente',
+      prueba: 'prueba local' }[e.resultado] || e.resultado);
+  }
+
   function tarjeta(d) {
-    var e = window.Envio.ultimo(d);
-    var env = !e ? '' : e.resultado === 'enviado' ? ' · Enviado a SST' : e.resultado === 'sin_flujo' ? ' · No enviado' : ' · Envío pendiente';
+    var e = window.Envio.ultimo(d), env = textoEnvio(e);
     return '<button class="tarjeta" data-accion="abrir" data-id="' + esc(d.id) + '">' +
       '<div class="tarjeta__fila"><strong>' + etiquetaTipo(d) + ' ' + esc(d.numero) + '</strong>' + pastilla(d) + '</div>' +
       '<div class="tarjeta__meta">' + esc(M.titulo(d)) + '</div>' +
-      '<div class="tarjeta__meta">' + esc(fecha(M.fecha(d))) + ' · ' + esc(M.lugar(d) || 'Sin lugar') + esc(env) + '</div></button>';
+      '<div class="tarjeta__meta">' + esc(fecha(M.fecha(d))) + ' · ' + esc(M.lugar(d) || 'Sin lugar') + (env ? ' · ' + esc(env) : '') + '</div></button>';
   }
 
   /* ========================= Pantalla: historial ==================== */
@@ -451,7 +457,7 @@
 
     app.innerHTML = resumen(d, false) +
       (u ? '<section class="bloque"><div class="alerta alerta--' + (u.resultado === 'confirmado' ? 'ok' : 'aviso') + '"><strong>' +
-        ({ prueba: 'Prueba local · sin envío', no_confirmado: 'Envío intentado · recepción sin confirmar', confirmado: 'Recepción confirmada', enviado: 'Envío anterior · recepción sin confirmar', pendiente: 'Envío pendiente', error: 'Error de envío', sin_flujo: 'No enviado (flujo sin configurar)' }[u.resultado] || u.resultado) +
+        ({ prueba: 'Prueba local · sin envío', no_confirmado: 'sin confirmar', confirmado: 'confirmado ✓', enviado: 'sin confirmar', rechazado: 'rechazado', pendiente: 'pendiente', error: 'pendiente', sin_flujo: 'pendiente' }[u.resultado] || u.resultado) +
         '</strong><div>' + esc(u.detalle) + '</div><small>' + esc(UI.fechaHora(u.fechaHora)) + '</small></div></section>' : '') +
       '<section class="bloque"><h2 class="h-seccion">Acciones</h2>' + acc +
       '<h2 class="h-seccion">Trazabilidad</h2><div class="historial-estados">' +
@@ -542,11 +548,13 @@
   function vAjustes() {
     app.innerHTML = '<section class="bloque">' +
       '<h2 class="h-seccion">Envío a SST (Power Automate)</h2>' +
-      '<p class="intro">Pega la URL del disparador "Cuando se recibe una solicitud HTTP". Se guarda solo en este celular.</p>' +
-      campo('URL del flujo', '<textarea id="aUrl" rows="4" placeholder="https://...">' + esc(C.flujoUrl) + '</textarea>') +
-      '<button class="btn btn--principal btn--ancho" data-accion="guardar-url">Guardar</button>' +
+      '<p class="intro">La URL y la clave se guardan únicamente en este dispositivo. No las publiques en el repositorio.</p>' +
+      campo('URL del flujo', '<textarea id="aUrl" rows="4" placeholder="<URL_DEL_FLUJO>">' + esc(C.flujoUrl) + '</textarea>') +
+      '<div class="campo"><label for="aClave">Clave del área</label><input id="aClave" type="password" autocomplete="off" value="' + esc(C.claveArea || '') + '" placeholder="<CLAVE_DEL_AREA>">' +
+      '<label class="confirmacion" for="aMostrarClave"><input id="aMostrarClave" type="checkbox" data-accion="mostrar-clave"> Mostrar clave</label></div>' +
+      '<button class="btn btn--principal btn--ancho" data-accion="guardar-conexion">Guardar conexión</button>' +
       '<button class="btn btn--fantasma btn--ancho" data-accion="probar-envio"' + (window.Envio.configurado() ? '' : ' disabled') + '>Enviar un documento de prueba</button>' +
-      '<p class="nota">El modo de prueba bloquea todos los envíos. Para habilitar operación real se debe configurar una nueva conexión y verificar la recepción en SST.</p>' +
+      '<p class="nota">La confirmación solo se muestra cuando el flujo devuelve una respuesta válida y coincidente. Un envío sin confirmar no se reintenta automáticamente.</p>' +
       '<h2 class="h-seccion">Este celular</h2><div class="datos">' +
       '<div class="dato"><span>Almacenamiento</span><strong>' + esc(st.motor) + '</strong></div>' +
       '<div class="dato"><span>Versión</span><strong>' + esc(C.version) + '</strong></div></div></section>';
@@ -574,11 +582,24 @@
     UI.aviso(C.modoPrueba || d.prueba ? 'Guardando prueba local…' : 'Intentando envío a SST…');
     return window.Envio.enviar(d, momento).then(function (r) {
       return window.Store.guardar(d).then(function () {
-        var msg = { prueba: 'Prueba registrada en este dispositivo. Sin envío.', no_confirmado: 'Envío intentado. Verifica la recepción con SST.', confirmado: 'Recepción confirmada por SST', enviado: 'Recepción sin confirmar', sin_flujo: 'Registrado. No se envió: falta configurar el flujo.', pendiente: 'Registrado. Envío pendiente (sin conexión con el flujo).', error: 'Registrado, pero falló el envío.' }[r.resultado];
-        UI.aviso(msg, ['prueba', 'confirmado'].indexOf(r.resultado) >= 0 ? 'ok' : 'mal');
+        UI.aviso(r.detalle || textoEnvio(r), r.resultado === 'confirmado' ? 'ok' : 'mal');
         return r;
       });
     });
+  }
+
+  function reenviar(d) {
+    var ultimo = window.Envio.ultimo(d);
+    function hacer() { return enviar(d, 'reenvio').then(function () { render(); }); }
+    if (!ultimo || ['no_confirmado', 'confirmado'].indexOf(ultimo.resultado) < 0) return hacer();
+    return UI.confirmar({
+      titulo: 'Reenviar a SST',
+      texto: ultimo.resultado === 'confirmado'
+        ? 'Este documento ya fue confirmado por SST. Reenviarlo puede generar un duplicado.'
+        : 'El intento anterior quedó sin confirmar y el flujo pudo haberlo procesado. Reenviarlo puede generar un duplicado.',
+      aceptar: 'Reenviar de todos modos',
+      peligro: true
+    }).then(function (ok) { if (ok) return hacer(); });
   }
 
   /* ============================ Acciones ============================ */
@@ -689,7 +710,7 @@
       case 'autorizar': finalizar('AUTORIZADO', 'petarAutorizado', 'Autorizar el PETAR', 'Se autoriza la ejecución del trabajo en las condiciones indicadas, para el día y horario: ' + d.descripcion.horaInicio + ' a ' + d.descripcion.horaFin + '.'); break;
 
       /* Detalle */
-      case 'reenviar': enviar(d, 'reenvio').then(function () { render(); }); break;
+      case 'reenviar': reenviar(d); break;
       case 'ir-verificacion': st.verif = null; st['firma__verif'] = ''; ir('verificacion'); break;
       case 'guardar-verif': guardarVerificacion(); break;
       case 'ir-cierre': ir('cierre'); break;
@@ -711,9 +732,16 @@
         break;
 
       /* Ajustes */
-      case 'guardar-url':
+      case 'mostrar-clave':
+        $('#aClave').type = $('#aMostrarClave').checked ? 'text' : 'password';
+        break;
+      case 'guardar-conexion':
         C.flujoUrl = $('#aUrl').value.trim();
-        window.Store.pref('flujoUrl_v05', C.flujoUrl).then(function () { UI.aviso(C.flujoUrl ? 'URL guardada' : 'URL eliminada'); render(); });
+        C.claveArea = $('#aClave').value.trim();
+        Promise.all([
+          window.Store.pref('flujoUrl_v05', C.flujoUrl),
+          window.Store.pref('claveArea_v06', C.claveArea)
+        ]).then(function () { UI.aviso(window.Envio.configurado() ? 'Conexión guardada' : 'Falta URL o clave del área'); render(); });
         break;
       case 'probar-envio': probarEnvio(); break;
     }
@@ -789,14 +817,19 @@
   }
 
   function probarEnvio() {
-    if (C.modoPrueba) { UI.aviso('Modo prueba: los envíos externos están bloqueados.'); return; }
-    var prueba = M.nuevoATS('ATS-PRUEBA-' + Date.now().toString().slice(-5), st.usuario);
-    prueba.generales.tarea = 'Prueba de conexión con el flujo de SST';
-    prueba.generales.ubicacion = 'Sin ubicación (prueba)';
-    prueba.generales.supervisor = st.usuario.nombre;
-    prueba.pasos = [{ paso: 'Prueba', evento: '—', critico: 'no', medidas: '—', responsable: st.usuario.nombre }];
-    window.Envio.enviar(prueba, 'prueba').then(function (r) {
-      UI.aviso(r.detalle, ['prueba', 'confirmado'].indexOf(r.resultado) >= 0 ? 'ok' : 'mal');
+    if (!window.Envio.configurado()) { UI.aviso('Configura la URL y la clave del área.', 'mal'); return Promise.resolve(); }
+    var ficticio = { nombre: 'USUARIO FICTICIO', cargo: 'PRUEBA DE CONEXIÓN' };
+    var prueba = M.nuevoATS('ATS-PRUEBA-CONEXION-' + Date.now().toString().slice(-6), ficticio);
+    prueba.prueba = false;
+    prueba.generales.tarea = 'PRUEBA FICTICIA DE CONEXIÓN — NO CORRESPONDE A UN TRABAJO REAL';
+    prueba.generales.ubicacion = 'UBICACIÓN FICTICIA';
+    prueba.generales.areaContratista = 'ÁREA FICTICIA';
+    prueba.generales.lideradoPor = ficticio.nombre;
+    prueba.generales.supervisor = ficticio.nombre;
+    prueba.pasos = [{ paso: 'Prueba de conexión', evento: 'Dato ficticio', critico: 'no', medidas: 'Dato ficticio', responsable: ficticio.nombre }];
+    return window.Envio.enviar(prueba, 'prueba_conexion').then(function (r) {
+      UI.aviso(r.detalle || textoEnvio(r), r.resultado === 'confirmado' ? 'ok' : 'mal');
+      return r;
     });
   }
 
@@ -831,11 +864,12 @@
     window.Store.init().then(function (m) {
       st.motor = m;
       $('#motor').textContent = 'Copia en este celular · ' + m;
-      return Promise.all([window.Store.pref('usuario'), window.Store.pref('flujoUrl_v05')]);
+      return Promise.all([window.Store.pref('usuario'), window.Store.pref('flujoUrl_v05'), window.Store.pref('claveArea_v06')]);
     }).then(function (r) {
       // La URL anterior contenía una clave publicada; no se reutiliza.
       window.Store.pref('flujoUrl', '').catch(errorGuardado);
       if (r[1]) C.flujoUrl = r[1];
+      if (r[2]) C.claveArea = r[2];
       st.usuario = r[0] || null;
       ir(st.usuario ? 'inicio' : 'usuario');
     });

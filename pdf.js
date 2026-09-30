@@ -1,5 +1,5 @@
 /* =====================================================================
-   DOCUMENTO PDF — window.DocPDF
+   DOCUMENTO PDF — window.DocPDF · v06
    Genera el ATS (FOR-GHS-001) y el PETAR (FOR-GHS-002) en A4.
    Todas las celdas ajustan su alto al texto: nada se corta.
    ===================================================================== */

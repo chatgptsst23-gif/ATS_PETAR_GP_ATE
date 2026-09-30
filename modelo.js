@@ -1,5 +1,5 @@
 /* =====================================================================
-   MODELO — window.Modelo
+   MODELO — window.Modelo · v06
    Estructura, validación y estados del ATS y del PETAR.
    Lógica pura: no toca la interfaz ni el almacenamiento.
    ===================================================================== */

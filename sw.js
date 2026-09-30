@@ -1,5 +1,5 @@
-/* v05: versiones completas, caché exclusiva de esta aplicación. */
-var CACHE = 'sst-pana-ats-ate-v05-campo';
+/* v06: piloto operativo, caché exclusiva de esta aplicación. */
+var CACHE = 'sst-pana-ats-ate-v06-piloto';
 var ARCHIVOS = ['./', './index.html', './styles.css', './config.js', './logo.js', './logo_isotipo.png', './logo_isotipo_blanco.png', './ui.js', './modelo.js', './datos.js', './pdf.js', './app.js', './jspdf.umd.min.js', './icono-192.png', './icono-512.png', './manifest.webmanifest'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(ARCHIVOS); }).then(function () { return self.skipWaiting(); }));

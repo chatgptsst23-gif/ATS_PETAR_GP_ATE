@@ -1,5 +1,5 @@
 /* =====================================================================
-   DATOS — window.Store (almacenamiento local) y window.Envio (flujo)
+   DATOS — window.Store (almacenamiento local) y window.Envio (flujo) · v06
    ---------------------------------------------------------------------
    Store: copia de trabajo en el celular (IndexedDB; respaldo en
    localStorage). El registro oficial es el que llega a SharePoint.
@@ -117,45 +117,55 @@
   };
 
   /* ---------------- Envío al flujo ---------------- */
-  var Envio = {
-    configurado: function () { return !!(window.SST_CONFIG.flujoUrl || '').trim(); },
+  function nuevoIdEnvio() {
+    var c = window.crypto;
+    if (c && typeof c.randomUUID === 'function') return c.randomUUID();
+    var b = new Uint8Array(16);
+    c.getRandomValues(b);
+    b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+    var h = Array.from(b).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+    return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);
+  }
 
-    /* Se envía como texto plano y sin CORS: el navegador no bloquea el
-       envío, pero tampoco permite leer la respuesta. La confirmación
-       real es la llegada del correo y del archivo a SharePoint. */
+  function agregarRegistro(doc, registro, resultado, detalle) {
+    registro.resultado = resultado;
+    registro.detalle = detalle;
+    doc.envios.push(registro);
+    return registro;
+  }
+
+  var Envio = {
+    configurado: function () {
+      return !!(window.SST_CONFIG.flujoUrl || '').trim() && !!(window.SST_CONFIG.claveArea || '').trim();
+    },
+
     enviar: function (doc, momento) {
       var C = window.SST_CONFIG;
       var registro = { fechaHora: new Date().toISOString(), momento: momento, resultado: '', detalle: '' };
       doc.envios = doc.envios || [];
 
-      if (C.modoPrueba || doc.prueba) {
-        registro.resultado = 'prueba';
-        registro.detalle = 'Documento de prueba guardado solo en este dispositivo. No se realizó ningún envío.';
-        doc.envios.push(registro);
-        return Promise.resolve(registro);
+      /* Regla heredada de v05: un documento creado como prueba nunca sale del dispositivo. */
+      if (C.modoPrueba || doc.prueba === true) {
+        return Promise.resolve(agregarRegistro(doc, registro, 'prueba',
+          'Documento de prueba guardado solo en este dispositivo. No se realizó ningún envío.'));
       }
       if (!Envio.configurado()) {
-        registro.resultado = 'sin_flujo';
-        registro.detalle = 'No hay URL del flujo configurada; el PDF solo se generó en el celular.';
-        doc.envios.push(registro);
-        return Promise.resolve(registro);
+        return Promise.resolve(agregarRegistro(doc, registro, 'sin_flujo',
+          'Falta configurar la URL del flujo y la clave del área en Ajustes.'));
       }
       if (navigator.onLine === false) {
-        registro.resultado = 'pendiente';
-        registro.detalle = 'Sin conexión. Se puede reintentar desde la ficha del documento.';
-        doc.envios.push(registro);
-        return Promise.resolve(registro);
+        return Promise.resolve(agregarRegistro(doc, registro, 'pendiente',
+          'Envío pendiente · sin conexión. Reintenta manualmente desde la ficha.'));
       }
 
       var pdf;
       try { pdf = window.DocPDF.base64(doc); }
       catch (e) {
-        registro.resultado = 'error'; registro.detalle = 'No se pudo generar el PDF: ' + e.message;
-        doc.envios.push(registro);
-        return Promise.resolve(registro);
+        return Promise.resolve(agregarRegistro(doc, registro, 'error', 'No se pudo generar el PDF.'));
       }
 
-      var cuerpo = window.Modelo.correoHTML(doc, momento);
+      var idEnvio = nuevoIdEnvio();
+      registro.idEnvio = idEnvio;
       var payload = {
         origen: 'gestion-digital-sst-v03',
         tipo: doc.tipo,
@@ -165,28 +175,48 @@
         sede: C.sede,
         fecha: doc.tipo === 'ATS' ? doc.generales.fecha : doc.descripcion.fecha,
         asunto: window.Modelo.asuntoCorreo(doc, momento),
-        cuerpo: cuerpo,
+        cuerpo: window.Modelo.correoHTML(doc, momento),
         nombreArchivo: window.DocPDF.nombreArchivo(doc),
         pdfBase64: pdf,
         registradoPor: doc.usuario ? doc.usuario.nombre : '',
-        generadoEn: new Date().toISOString()
+        generadoEn: new Date().toISOString(),
+        version: 'v06',
+        clave: C.claveArea,
+        idEnvio: idEnvio
       };
+
+      var controlador = new AbortController();
+      var reloj = setTimeout(function () { controlador.abort(); }, 45000);
 
       return fetch(C.flujoUrl.trim(), {
         method: 'POST',
-        mode: 'no-cors',
+        mode: 'cors',
         headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-        body: JSON.stringify(payload)
-      }).then(function () {
-        registro.resultado = 'no_confirmado';
-        registro.detalle = 'Solicitud enviada al flujo (' + payload.nombreArchivo + '), sin confirmación de recepción ni archivo. Verifica con SST antes de reintentar.';
-        doc.envios.push(registro);
-        return registro;
-      }).catch(function (e) {
-        registro.resultado = 'pendiente';
-        registro.detalle = 'No se pudo contactar al flujo: ' + e.message;
-        doc.envios.push(registro);
-        return registro;
+        body: JSON.stringify(payload),
+        signal: controlador.signal
+      }).then(function (respuesta) {
+        clearTimeout(reloj);
+        return respuesta.text().then(function (texto) {
+          var datos = null;
+          try { datos = JSON.parse(texto); } catch (e) {}
+
+          if ((datos && datos.ok === false) || (respuesta.status >= 400 && respuesta.status < 500)) {
+            var motivo = datos && datos.motivo ? String(datos.motivo) : 'solicitud rechazada';
+            registro.motivo = motivo;
+            return agregarRegistro(doc, registro, 'rechazado', 'Envío rechazado: ' + motivo);
+          }
+
+          if (respuesta.ok && datos && datos.ok === true &&
+              datos.numero === doc.numero && datos.idEnvio === idEnvio && datos.archivo) {
+            registro.archivo = String(datos.archivo);
+            return agregarRegistro(doc, registro, 'confirmado', 'Recibido por SST ✓ — ' + registro.archivo);
+          }
+
+          return agregarRegistro(doc, registro, 'no_confirmado', 'Envío intentado · recepción sin confirmar');
+        });
+      }).catch(function () {
+        clearTimeout(reloj);
+        return agregarRegistro(doc, registro, 'no_confirmado', 'Envío intentado · recepción sin confirmar');
       });
     },
 

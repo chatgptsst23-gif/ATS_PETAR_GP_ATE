@@ -1,5 +1,5 @@
 /* =====================================================================
-   CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v04
+   CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v06
    ATS (FOR-GHS-001 v01) y PETAR (FOR-GHS-002 v01) — sede Ate, área B&P
    ---------------------------------------------------------------------
    Todo el contenido de los formatos vive aquí. Cambiar una pregunta,
@@ -18,12 +18,13 @@ window.SST_CONFIG = {
   sistema: 'Gestión Digital SST',
   sede: 'Ate',
   areaPorDefecto: 'Planchado y pintura (B&P)',
-  version: 'v05 (prueba de campo)',
+  version: 'v06 (piloto)',
 
   /* URL del flujo de Power Automate ("Cuando se recibe una solicitud HTTP").
      Vacía = la app funciona igual, pero no envía correo ni guarda en SharePoint. */
   flujoUrl: '',
-  modoPrueba: true, /* Visita de campo: bloquea todos los envíos externos. */
+  claveArea: '', /* Solo se carga desde Ajustes; nunca publicar una clave real aquí. */
+  modoPrueba: false,
 
   /* Momentos en que se envía el documento a SST */
   enviarAl: { atsRegistrado: true, petarAutorizado: true, petarCerrado: true },
@@ -162,7 +163,7 @@ window.SST_CONFIG = {
     duracionMaxHoras: null   /* Grupo Pana define el máximo; hoy: "el día" */
   },
 
-  /* Destino de los documentos en la demo */
+  /* Estados visibles del piloto */
   estados: {
     BORRADOR:   { etiqueta: 'Borrador',   tono: 'neutro' },
     REGISTRADO: { etiqueta: 'Registrado', tono: 'ok' },
