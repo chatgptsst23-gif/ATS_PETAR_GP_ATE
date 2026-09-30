@@ -1,5 +1,5 @@
 /* =====================================================================
-   MODELO — window.Modelo · v06
+   MODELO — window.Modelo · v07
    Estructura, validación y estados del ATS y del PETAR.
    Lógica pura: no toca la interfaz ni el almacenamiento.
    ===================================================================== */
@@ -51,8 +51,18 @@
     },
 
     nuevoPETAR: function (numero, usuario, ats) {
-      var epp = {};
-      C.petar.epp.forEach(function (g) { g.items.forEach(function (it) { if (it.sugerido) epp[it.id] = true; }); });
+      var epp = {}, tipos = {};
+      C.petar.tipos.forEach(function (t) { tipos[t.id] = false; });
+      /* Solo el EPP básico nace marcado. El EPP específico se deriva del tipo de trabajo. */
+      (C.petar.epp[0] ? C.petar.epp[0].items : []).forEach(function (it) { if (it.sugerido) epp[it.id] = true; });
+      if (ats && ats.permisos) {
+        if (ats.permisos.caliente) tipos.caliente = true;
+        if (ats.permisos.altura) tipos.altura = true;
+      }
+      Object.keys(tipos).forEach(function (tipo) {
+        if (!tipos[tipo]) return;
+        (C.petar.eppPorTipo[tipo] || []).forEach(function (k) { epp[k] = true; });
+      });
       var p = {
         id: 'd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
         tipo: 'PETAR', prueba: !!C.modoPrueba, numero: numero, estado: 'BORRADOR',
@@ -64,11 +74,15 @@
           ejecutaTipo: 'Grupo Pana', ejecutaNombre: C.areaPorDefecto,
           tarea: '', lugar: '', capacitacion: ''
         },
-        tipos: { caliente: true },
+        tipos: tipos,
         epp: epp, eppOtros: '',
         requisitos: {},
-        caliente: {}, vigia: firmante(),
+        caliente: {}, vigia: firmante(), /* legado v06 */
+        vigias: { caliente: firmante(), altura: firmante() },
         adicionales: {},
+        altura: {}, escaleras: { usa: '' }, peligrosos: {},
+        quimicos: { productos: '', inflamable: '', lel: '' },
+        evidencias: {},
         emergencia: {
           encargadoSede: '', supervisorPrevencionista: '',
           emergencias: {}, emergenciaOtro: '',
@@ -130,14 +144,82 @@
       if (d.tipo === 'ATS') return d.personal.some(function (x) { return x.firma; }) || !!d.supervisorFirma.firma;
       var a = d.autorizacion;
       return d.participantes.some(function (x) { return x.firma; }) || !!d.supervisorTrabajo.firma ||
-        !!(a.supervisor.firma || a.area.firma || a.ejecutante.firma || d.vigia.firma);
+        !!(a.supervisor.firma || a.area.firma || a.ejecutante.firma || (d.vigias && d.vigias.caliente && d.vigias.caliente.firma) || (d.vigias && d.vigias.altura && d.vigias.altura.firma) || (d.vigia && d.vigia.firma));
     },
 
     limpiarFirmas: function (d) {
       function l(f) { f.firma = ''; f.fechaHora = ''; }
       if (d.tipo === 'ATS') { d.personal.forEach(l); l(d.supervisorFirma); return; }
-      d.participantes.forEach(l); l(d.supervisorTrabajo); l(d.vigia);
+      Modelo.normalizar(d); d.participantes.forEach(l); l(d.supervisorTrabajo); l(d.vigias.caliente); l(d.vigias.altura); if (d.vigia) l(d.vigia);
       ['supervisor', 'area', 'ejecutante'].forEach(function (k) { l(d.autorizacion[k]); });
+    },
+
+    /* Completa campos nuevos en PETAR creados con versiones anteriores */
+    normalizar: function (d) {
+      if (!d || d.tipo !== 'PETAR') return d;
+      d.altura = d.altura || {};
+      d.escaleras = d.escaleras || { usa: '' };
+      d.peligrosos = d.peligrosos || {};
+      d.quimicos = d.quimicos || { productos: '', inflamable: '', lel: '' };
+      d.evidencias = d.evidencias || {};
+      d.vigias = d.vigias || { caliente: firmante(), altura: firmante() };
+      d.vigias.caliente = Object.assign(firmante(), d.vigias.caliente || {});
+      d.vigias.altura = Object.assign(firmante(), d.vigias.altura || {});
+      /* Migra el vigía único de v06/v07 temprana sin perder la firma. */
+      if (d.vigia && (d.vigia.nombre || d.vigia.firma)) {
+        if (d.tipos.caliente && !d.vigias.caliente.nombre) d.vigias.caliente = Object.assign(firmante(), d.vigia);
+        if (d.tipos.altura && !d.vigias.altura.nombre) d.vigias.altura = Object.assign(firmante(), d.vigia);
+      }
+      return d;
+    },
+
+    /* ------------------------ Evidencias fotográficas ------------------ */
+    /* Evidencias mínimas por tipo de trabajo. Las fotos son referencias a Blobs de IndexedDB. */
+    evidenciasRequeridas: function (d, seccion) {
+      Modelo.normalizar(d);
+      var r = [];
+      ['caliente', 'altura', 'peligrosos'].forEach(function (tipo) {
+        if (seccion && seccion !== tipo) return;
+        if (!d.tipos[tipo]) return;
+        (C.petar.evidenciasPorTipo[tipo] || []).forEach(function (it) {
+          r.push({ ruta: tipo + '.' + it.id, texto: it.label, ayuda: it.ayuda || '', seccion: tipo, id: it.id });
+        });
+      });
+      return r;
+    },
+
+    fotosDe: function (d, ruta) { return ((d.evidencias || {})[ruta]) || []; },
+
+    fotosActivas: function (d) {
+      var r = [];
+      Modelo.evidenciasRequeridas(d).forEach(function (x) {
+        Modelo.fotosDe(d, x.ruta).forEach(function (f) { r.push(Object.assign({ ruta: x.ruta, seccion: x.seccion, etiqueta: x.texto }, f)); });
+      });
+      return r;
+    },
+
+    totalFotos: function (d) { return Modelo.fotosActivas(d).length; },
+
+    fotosFaltantes: function (d, seccion) {
+      if (d.evidenciasNoDisponibles) return [];
+      return Modelo.evidenciasRequeridas(d, seccion).filter(function (x) { return !Modelo.fotosDe(d, x.ruta).length; });
+    },
+
+    limpiarEvidenciasTipo: function (d, tipo) {
+      Modelo.normalizar(d);
+      var ids = [];
+      Object.keys(d.evidencias).forEach(function (ruta) {
+        if (ruta.indexOf(tipo + '.') !== 0) return;
+        (d.evidencias[ruta] || []).forEach(function (f) { if (f.id) ids.push(f.id); });
+        delete d.evidencias[ruta];
+      });
+      return ids;
+    },
+
+    /* Regla crítica: soldadura/corte y productos inflamables en el mismo permiso */
+    calienteConInflamables: function (d) {
+      Modelo.normalizar(d);
+      return d.tipo === 'PETAR' && !!d.tipos.caliente && !!d.tipos.peligrosos && d.quimicos.inflamable === 'si';
     },
 
     /* ------------------------ Pasos del formulario ------------------ */
@@ -152,7 +234,11 @@
         { id: 'epp', titulo: 'III. Equipos de protección personal' },
         { id: 'requisitos', titulo: 'IV. Requisitos de seguridad' }
       ];
+      Modelo.normalizar(d);
       if (d.tipos.caliente) l.push({ id: 'caliente', titulo: 'V. Trabajo en caliente' });
+      if (d.tipos.altura) l.push({ id: 'altura', titulo: 'V. Trabajo en altura' });
+      if (d.tipos.peligrosos) l.push({ id: 'peligrosos', titulo: 'V. Materiales peligrosos (no rutinario)' });
+      if (d.tipos.caliente || d.tipos.altura || d.tipos.peligrosos) l.push({ id: 'evidencias', titulo: 'Evidencias fotográficas' });
       l.push({ id: 'emergencia', titulo: 'VI. Respuesta ante emergencias' });
       return l;
     },
@@ -211,7 +297,23 @@
       if (id === 'caliente') {
         C.petar.caliente.forEach(function (r, i) { if (!d.caliente[r.id]) e.push('Trabajo en caliente, pregunta ' + (i + 1) + ' sin responder.'); });
         C.petar.adicionales.forEach(function (r) { if (!d.adicionales[r.id]) e.push('Control adicional sin responder: ' + r.label + '.'); });
-        req(d.vigia.nombre, 'Indica el nombre del vigía.');
+        req(d.vigias.caliente.nombre, 'Indica el nombre del vigía de trabajo en caliente.');
+      }
+      if (id === 'altura') {
+        Modelo.normalizar(d);
+        C.petar.altura.forEach(function (r, i) { if (!d.altura[r.id]) e.push('Trabajo en altura, pregunta ' + (i + 1) + ' sin responder.'); });
+        if (!d.escaleras.usa) e.push('Indica si se usará escalera.');
+        if (d.escaleras.usa === 'si') C.petar.escaleras.forEach(function (r) { if (!d.escaleras[r.id]) e.push('Escalera sin responder: ' + r.label + '.'); });
+        req(d.vigias.altura.nombre, 'Indica el nombre del vigía de trabajo en altura.');
+      }
+      if (id === 'peligrosos') {
+        Modelo.normalizar(d);
+        req(d.quimicos.productos, 'Indica los productos químicos que se manipularán.');
+        if (!d.quimicos.inflamable) e.push('Indica si algún producto es inflamable.');
+        C.petar.peligrosos.forEach(function (r, i) { if (!d.peligrosos[r.id]) e.push('Materiales peligrosos, pregunta ' + (i + 1) + ' sin responder.'); });
+      }
+      if (id === 'evidencias') {
+        Modelo.fotosFaltantes(d).forEach(function (x) { e.push('Falta la evidencia: ' + x.texto + '.'); });
       }
       if (id === 'emergencia') {
         var m = d.emergencia;
@@ -242,7 +344,17 @@
       if (d.tipo !== 'PETAR') return b;
       if (d.descripcion.capacitacion === 'no') b.push('No se llevó a cabo la capacitación previa de los trabajadores.');
       C.petar.requisitos.forEach(function (r) { if (d.requisitos[r.id] === 'no' && r.nivel === 'critico') b.push(r.label); });
+      Modelo.normalizar(d);
       if (d.tipos.caliente) C.petar.caliente.forEach(function (r) { if (d.caliente[r.id] === 'no' && r.nivel === 'critico') b.push(r.label); });
+      if (d.tipos.altura) C.petar.altura.forEach(function (r) { if (d.altura[r.id] === 'no' && r.nivel === 'critico') b.push(r.label); });
+      if (d.tipos.altura && d.escaleras.usa === 'si') C.petar.escaleras.forEach(function (r) { if (d.escaleras[r.id] === 'no' && r.nivel === 'critico') b.push(r.label); });
+      if (d.tipos.peligrosos) C.petar.peligrosos.forEach(function (r) { if (d.peligrosos[r.id] === 'no' && r.nivel === 'critico') b.push(r.label); });
+      if (Modelo.calienteConInflamables(d)) {
+        var lel = String(d.quimicos.lel || '').trim().replace(',', '.');
+        if (lel === '' || isNaN(Number(lel)) || Number(lel) !== 0) {
+          b.push('Trabajo en caliente con productos inflamables: se requiere medición de LEL igual a 0 %. Sin medición, el permiso no se autoriza. Separa las tareas en tiempo o lugar.');
+        }
+      }
       if (d.emergencia.rutasLibres === 'no') b.push('Las rutas de acceso y salida no están libres de obstáculos.');
       if (d.emergencia.rutasIndicadas === 'no') b.push('No se indicó a los trabajadores las rutas de evacuación y puntos de reunión.');
       var fin = Modelo.finVigencia(d);
@@ -252,8 +364,12 @@
 
     /* Observaciones: controles "requerido" respondidos con No */
     observados: function (d) {
-      if (d.tipo !== 'PETAR' || !d.tipos.caliente) return [];
-      return C.petar.adicionales.filter(function (r) { return d.adicionales[r.id] === 'no'; }).map(function (r) { return r.label; });
+      if (d.tipo !== 'PETAR') return [];
+      Modelo.normalizar(d);
+      var o = [];
+      if (d.tipos.caliente) o = o.concat(C.petar.adicionales.filter(function (r) { return d.adicionales[r.id] === 'no'; }).map(function (r) { return r.label; }));
+      if (d.tipos.altura && d.escaleras.usa === 'si') o = o.concat(C.petar.escaleras.filter(function (r) { return r.nivel !== 'critico' && d.escaleras[r.id] === 'no'; }).map(function (r) { return r.label; }));
+      return o;
     },
 
     semaforo: function (d) {
@@ -285,8 +401,13 @@
       });
       f(d.supervisorTrabajo, 'supervisor de trabajo (sección VII)');
       if (!dniValido(d.supervisorTrabajo.dni)) e.push('DNI inválido o vacío del supervisor de trabajo.');
-      if (d.tipos.caliente) f(d.vigia, 'vigía');
+      Modelo.normalizar(d);
+      if (d.tipos.caliente) f(d.vigias.caliente, 'vigía de trabajo en caliente');
+      if (d.tipos.altura) f(d.vigias.altura, 'vigía de trabajo en altura');
       C.petar.firmasAutorizacion.forEach(function (a) { f(d.autorizacion[a.clave], a.cargo.toLowerCase()); });
+      var sup = (d.autorizacion.supervisor.nombre || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      var eje = (d.autorizacion.ejecutante.nombre || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      if (sup && sup === eje) e.push('El supervisor del trabajo no puede ser la misma persona que el ejecutante: la autorización debe ser independiente.');
       return e;
     },
 

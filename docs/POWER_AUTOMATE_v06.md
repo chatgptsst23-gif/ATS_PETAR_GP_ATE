@@ -1,6 +1,6 @@
 # Power Automate — configuración v06
 
-Esta guía usa únicamente marcadores. **No escribas una URL firmada, una firma `sig=` ni una clave real en el repositorio.**
+Esta guía usa únicamente marcadores. **No escribas una URL firmada, una firma de autenticación ni una clave real en el repositorio.**
 
 ## 1. Invalidar la URL anterior
 

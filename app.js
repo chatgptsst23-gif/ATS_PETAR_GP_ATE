@@ -1,6 +1,6 @@
 /* =====================================================================
-   APLICACIÓN — Grupo Pana · Gestión Digital SST · v06
-   ATS y PETAR de trabajo en caliente. Pantallas, navegación y acciones.
+   APLICACIÓN — Grupo Pana · Gestión Digital SST · v07
+   ATS y PETAR de trabajos de alto riesgo. Pantallas, navegación y acciones.
    ===================================================================== */
 (function () {
   'use strict';
@@ -11,7 +11,7 @@
   var st = {
     usuario: null, pantalla: 'usuario', doc: null, paso: 0,
     errores: [], lista: [], filtroTipo: '', pads: {}, volverA: 'inicio',
-    sstAutorizado: false, claveAjustesHash: ''
+    sstAutorizado: false, claveAjustesHash: '', fotosDisponibles: true
   };
   var app, titulo, sub, atras, tGuardar = null;
 
@@ -74,10 +74,111 @@
       return '<button type="button" class="seg__btn seg__btn--' + o.t + (valor === o.v ? ' es-activo' : '') + '" data-accion="resp" data-ruta="' + ruta + '" data-valor="' + o.v + '">' + o.e + '</button>';
     }).join('') + '</div>';
   }
-  function pregunta(texto, ruta, valor, escala, marcasHtml, alerta) {
+  function pregunta(texto, ruta, valor, escala, marcasHtml, alerta, extra) {
     return '<div class="preg"><p class="preg__texto">' + esc(texto) + (marcasHtml || '') + '</p>' + seg(ruta, valor, escala) +
-      (alerta ? '<div class="alerta alerta--' + alerta[0] + '">' + esc(alerta[1]) + '</div>' : '') + '</div>';
+      (alerta ? '<div class="alerta alerta--' + alerta[0] + '">' + esc(alerta[1]) + '</div>' : '') + (extra || '') + '</div>';
   }
+
+  /* ---------------- Evidencias fotográficas optimizadas ---------------- */
+  function marcaOrigen(it) {
+    if (it.origen === 'DS 42-F') return '<span class="marca marca--norma">D.S. 42-F' + (it.ref ? ' ' + esc(it.ref) : '') + '</span>';
+    if (it.origen === 'interno') return '<span class="marca marca--interno">Estándar interno sugerido</span>';
+    return '<span class="marca marca--interno">' + esc(it.origen || 'FOR-GHS-002') + '</span>';
+  }
+
+  function preguntaV(d, seccion, it, alertaNo) {
+    var ruta = seccion + '.' + it.id, v = d[seccion][it.id];
+    return pregunta(it.label, ruta, v, it.admiteNA ? ESC_SNNA : ESC_SN, marca(it.nivel) + marcaOrigen(it),
+      v === 'no' ? (it.nivel === 'critico' ? ['mal', alertaNo || 'Control crítico sin cumplir: el permiso no puede autorizarse.'] : ['aviso', 'Registra la medida adoptada en Observaciones.']) : null);
+  }
+
+  function evidenciaHTML(d, ev) {
+    var fotos = M.fotosDe(d, ev.ruta), cfg = C.petar.fotos;
+    var lleno = fotos.length >= cfg.maxPorEvidencia || M.totalFotos(d) >= cfg.maxTotal;
+    var mini = fotos.map(function (f, i) {
+      return '<figure class="ev-foto"><button type="button" class="ev-foto__abrir" data-accion="ver-foto" data-id="' + esc(f.id) + '">' +
+        '<img data-mini-foto="' + esc(f.id) + '" alt="Evidencia ' + (i + 1) + '"></button>' +
+        '<button type="button" class="ev-foto__quitar" data-accion="quitar-foto" data-ruta="' + esc(ev.ruta) + '" data-id="' + esc(f.id) + '" aria-label="Quitar foto">×</button></figure>';
+    }).join('');
+    var boton = lleno ? '<small class="nota">Límite de fotografías alcanzado.</small>' :
+      '<label class="btn btn--fantasma btn--foto">' + (fotos.length ? '+ Foto adicional' : 'Tomar foto') +
+      '<input type="file" accept="image/*" capture="environment" hidden data-foto="' + esc(ev.ruta) + '" data-texto="' + esc(ev.texto) + '"></label>';
+    return '<article class="evidencia' + (!fotos.length ? ' evidencia--falta' : '') + '"><p class="evidencia__txt"><strong>' + esc(ev.texto) + '</strong></p>' +
+      (ev.ayuda ? '<p class="nota">' + esc(ev.ayuda) + '</p>' : '') + (mini ? '<div class="ev-fotos">' + mini + '</div>' : '') + boton + '</article>';
+  }
+
+  function montarMiniaturas() {
+    if (!window.Store || !window.Store.obtenerFoto || !document.querySelectorAll) return;
+    Array.prototype.forEach.call(document.querySelectorAll('img[data-mini-foto]'), function (img) {
+      if (img.dataset.cargada) return;
+      img.dataset.cargada = '1';
+      window.Store.obtenerFoto(img.dataset.miniFoto).then(function (r) {
+        if (!r || !(r.mini || r.blob)) return;
+        var u = URL.createObjectURL(r.mini || r.blob); img.src = u;
+        img.onload = img.onerror = function () { URL.revokeObjectURL(u); };
+      }).catch(function () {});
+    });
+  }
+
+  function canvasBlob(c, calidad) {
+    return new Promise(function (ok, mal) { c.toBlob(function (b) { b ? ok(b) : mal(new Error('No se pudo comprimir la foto.')); }, 'image/jpeg', calidad); });
+  }
+
+  function tomarFoto(input) {
+    var d = st.doc, ruta = input.dataset.foto, texto = input.dataset.texto || '', file = input.files && input.files[0];
+    input.value = '';
+    if (!d || !file) return;
+    if (!window.Store.fotosSoportadas()) { UI.aviso('Este dispositivo no dispone de IndexedDB para guardar fotos.', 'mal'); return; }
+    if (!/^image\//.test(file.type)) { UI.aviso('Solo se admiten imágenes.', 'mal'); return; }
+    var cfg = C.petar.fotos;
+    if (M.totalFotos(d) >= cfg.maxTotal) { UI.aviso('Se alcanzó el máximo de ' + cfg.maxTotal + ' fotos por PETAR.', 'mal'); return; }
+    UI.aviso('Optimizando foto…');
+
+    function procesar(img, cerrar) {
+      var iw = img.width || img.naturalWidth, ih = img.height || img.naturalHeight;
+      var escala = Math.min(1, cfg.anchoMaximoPx / Math.max(iw, ih));
+      var w = Math.max(1, Math.round(iw * escala)), h = Math.max(1, Math.round(ih * escala));
+      var c = document.createElement('canvas'); c.width = w; c.height = h;
+      var x = c.getContext('2d'); x.drawImage(img, 0, 0, w, h); if (cerrar) cerrar();
+      var ahora = new Date(), sello = d.numero + ' · ' + UI.fechaHora(ahora.toISOString()) + ' · ' + texto;
+      var fs = Math.max(14, Math.round(w / 52)), banda = Math.round(fs * 1.9);
+      x.fillStyle = 'rgba(0,0,0,.62)'; x.fillRect(0, h - banda, w, banda);
+      x.fillStyle = '#fff'; x.font = 'bold ' + fs + 'px sans-serif'; x.textBaseline = 'middle';
+      while (x.measureText(sello).width > w - fs && sello.length > 14) sello = sello.slice(0, -2);
+      x.fillText(sello, Math.round(fs / 2), h - banda / 2);
+      var tw = Math.min(cfg.miniaturaPx, w), th = Math.max(1, Math.round(h * tw / w));
+      var mini = document.createElement('canvas'); mini.width = tw; mini.height = th; mini.getContext('2d').drawImage(c, 0, 0, tw, th);
+      Promise.all([canvasBlob(c, cfg.calidadJpeg), canvasBlob(mini, cfg.calidadMiniatura)]).then(function (blobs) {
+        var id = 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        return window.Store.guardarFoto({ id: id, docId: d.id, blob: blobs[0], mini: blobs[1], fechaHora: ahora.toISOString(), texto: texto, ancho: w, alto: h }).then(function () {
+          d.evidencias = d.evidencias || {}; d.evidencias[ruta] = d.evidencias[ruta] || [];
+          d.evidencias[ruta].push({ id: id, fechaHora: ahora.toISOString(), texto: texto, ancho: w, alto: h });
+          return guardarYa();
+        });
+      }).then(function () { UI.aviso('Foto optimizada y guardada'); quieto(); }).catch(function (e) { UI.aviso(e.message || 'No se pudo guardar la foto.', 'mal'); });
+    }
+
+    if (window.createImageBitmap) {
+      window.createImageBitmap(file).then(function (bmp) { procesar(bmp, function () { if (bmp.close) bmp.close(); }); })
+        .catch(function () { UI.aviso('No se pudo leer la imagen.', 'mal'); });
+      return;
+    }
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onload = function () { procesar(img, function () { URL.revokeObjectURL(url); }); };
+    img.onerror = function () { URL.revokeObjectURL(url); UI.aviso('No se pudo leer la imagen.', 'mal'); };
+    img.src = url;
+  }
+
+  function verFoto(id) {
+    window.Store.obtenerFoto(id).then(function (r) {
+      if (!r || !r.blob) { UI.aviso('La foto no está disponible en este dispositivo.', 'mal'); return; }
+      var u = URL.createObjectURL(r.blob), fondo = document.createElement('div'); fondo.className = 'modal modal--foto';
+      fondo.innerHTML = '<div class="modal__caja foto-grande"><img src="' + u + '" alt="Evidencia fotográfica"><button class="btn btn--fantasma btn--ancho" data-cerrar>Cerrar</button></div>';
+      document.body.appendChild(fondo);
+      fondo.addEventListener('click', function (ev) { if (ev.target === fondo || ev.target.hasAttribute('data-cerrar')) { URL.revokeObjectURL(u); fondo.remove(); } });
+    });
+  }
+
   function ficha(accion, ruta, activo, etiqueta, deshab) {
     return '<button type="button" class="ficha' + (activo ? ' es-activo' : '') + (deshab ? ' ficha--off' : '') + '" data-accion="' + accion + '" data-ruta="' + ruta + '"' + (deshab ? ' disabled' : '') + '>' + esc(etiqueta) + '</button>';
   }
@@ -100,6 +201,7 @@
     cabecera();
     $('#pruebaBanner').hidden = !C.modoPrueba;
     if (['firmas', 'verificacion', 'cierre'].indexOf(st.pantalla) >= 0) montarFirmas();
+    montarMiniaturas();
   }
 
   function cabecera() {
@@ -137,30 +239,23 @@
       campo('Cargo *', '<input id="uCargo" type="text" value="' + esc(u.cargo) + '" placeholder="Ej. Supervisor de planchado y pintura">') +
       '<button class="btn btn--principal btn--ancho" data-accion="guardar-usuario">Continuar</button>' +
       '<p class="nota">Piloto operativo. La identificación sigue siendo local y no equivale a inicio de sesión corporativo.</p>' +
-      '<h2 class="h-seccion">Área SST</h2>' +
-      '<p class="nota">Acceso restringido para configurar la conexión y los ajustes de este dispositivo.</p>' +
-      '<button class="btn btn--fantasma btn--ancho" data-accion="ir-acceso-sst">Ingresar como Área SST</button>' +
-      '</section>';
+      '<h2 class="h-seccion">Área SST</h2><p class="nota">Acceso restringido para configurar la conexión y los ajustes de este dispositivo.</p>' +
+      '<button class="btn btn--fantasma btn--ancho" data-accion="ir-acceso-sst">Ingresar como Área SST</button></section>';
   }
 
   function hashClaveAjustes(clave) {
     if (!window.crypto || !window.crypto.subtle || !window.TextEncoder) return Promise.reject(new Error('Este navegador no permite proteger la clave local.'));
-    var datos = new window.TextEncoder().encode('sst-ajustes-v06|' + clave);
-    return window.crypto.subtle.digest('SHA-256', datos).then(function (buf) {
-      return Array.prototype.map.call(new Uint8Array(buf), function (b) { return b.toString(16).padStart(2, '0'); }).join('');
-    });
+    var datos = new window.TextEncoder().encode('sst-ajustes-v07|' + clave);
+    return window.crypto.subtle.digest('SHA-256', datos).then(function (buf) { return Array.prototype.map.call(new Uint8Array(buf), function (b) { return b.toString(16).padStart(2, '0'); }).join(''); });
   }
-
   function vAccesoSST() {
     var existe = !!st.claveAjustesHash;
-    app.innerHTML = '<section class="bloque">' + marcaHTML() +
-      '<h2 class="h-seccion">' + (existe ? 'Acceso Área SST' : 'Crear acceso Área SST') + '</h2>' +
+    app.innerHTML = '<section class="bloque">' + marcaHTML() + '<h2 class="h-seccion">' + (existe ? 'Acceso Área SST' : 'Crear acceso Área SST') + '</h2>' +
       '<p class="intro">' + (existe ? 'Ingresa la clave SST de este dispositivo para abrir Ajustes.' : 'Primera configuración: crea una clave local para proteger Ajustes en este dispositivo.') + '</p>' +
       campo(existe ? 'Clave SST *' : 'Nueva clave SST *', '<input id="sstClave" type="password" autocomplete="' + (existe ? 'current-password' : 'new-password') + '" placeholder="Mínimo 6 caracteres">') +
       (existe ? '' : campo('Confirmar clave SST *', '<input id="sstClave2" type="password" autocomplete="new-password" placeholder="Repite la clave">')) +
       '<button class="btn btn--principal btn--ancho" data-accion="' + (existe ? 'validar-clave-sst' : 'crear-clave-sst') + '">' + (existe ? 'Ingresar a Ajustes' : 'Crear clave e ingresar') + '</button>' +
-      '<p class="nota">Esta clave protege solo el acceso local a Ajustes. Es distinta de la Clave del área que usa Power Automate.</p>' +
-      '</section>';
+      '<p class="nota">Es una barrera local del piloto y es distinta de la clave del flujo de Power Automate.</p></section>';
   }
 
   /* ========================== Pantalla: inicio ====================== */
@@ -238,10 +333,11 @@
 
   /* ========================= Pantalla: formulario =================== */
   function vForm() {
+    M.normalizar(st.doc);
     var d = st.doc, pasos = M.pasos(d), id = pasos[st.paso].id;
     var cuerpo = d.tipo === 'ATS'
       ? { generales: fAtsGenerales, pasos: fAtsPasos, epp: fAtsEpp }[id](d)
-      : { descripcion: fPDescripcion, epp: fPEpp, requisitos: fPRequisitos, caliente: fPCaliente, emergencia: fPEmergencia }[id](d);
+      : { descripcion: fPDescripcion, epp: fPEpp, requisitos: fPRequisitos, caliente: fPCaliente, altura: fPAltura, peligrosos: fPPeligrosos, evidencias: fPEvidencias, emergencia: fPEmergencia }[id](d);
     app.innerHTML =
       '<div class="progreso"><div class="progreso__puntos">' + pasos.map(function (p, i) {
         return '<span class="punto ' + (i < st.paso ? 'hecho' : i === st.paso ? 'actual' : '') + '"></span>';
@@ -313,7 +409,7 @@
   }
 
   function fPEpp(d) {
-    return '<p class="intro">Viene marcado el EPP habitual para trabajo en caliente. Ajusta según la tarea.</p>' +
+    return '<p class="intro">Se marca EPP básico y, al elegir el tipo de trabajo, se sugieren EPP específicos. Ajusta según la tarea real.</p>' +
       C.petar.epp.map(function (g) {
         return '<label class="etiqueta">' + esc(g.grupo) + '</label><div class="fichas">' +
           g.items.map(function (it) { return ficha('toggle', 'epp.' + it.id, d.epp[it.id], it.label); }).join('') + '</div>';
@@ -331,17 +427,51 @@
 
   function fPCaliente(d) {
     return '<p class="intro">Verificación del supervisor del trabajo (formato FOR-GHS-002, sección V).</p>' +
-      C.petar.caliente.map(function (r) {
-        var v = d.caliente[r.id];
-        return pregunta(r.label, 'caliente.' + r.id, v, r.admiteNA ? ESC_SNNA : ESC_SN, marca(r.nivel) + '<span class="marca marca--interno">FOR-GHS-002</span>',
-          v === 'no' ? ['mal', 'Control crítico sin cumplir: el permiso no puede autorizarse.'] : null);
-      }).join('') +
-      campo('Nombre del vigía *', txt('vigia.nombre', d.vigia.nombre, 'Nombres y apellidos'), 'El vigía firma en la pantalla de firmas.') +
+      C.petar.caliente.map(function (r) { return preguntaV(d, 'caliente', r); }).join('') +
+      campo('Vigía de trabajo en caliente *', txt('vigias.caliente.nombre', d.vigias.caliente.nombre, 'Nombres y apellidos'), 'Firma de manera independiente en la pantalla de firmas.') +
       '<h2 class="h-seccion">Controles adicionales sugeridos</h2>' +
       '<div class="alerta alerta--aviso">No forman parte del formato vigente FOR-GHS-002. Se proponen a partir del D.S. 42-F para que SST decida si los incorpora. Un "No" no bloquea, pero queda como observación.</div>' +
       C.petar.adicionales.map(function (r) {
         return pregunta(r.label, 'adicionales.' + r.id, d.adicionales[r.id], ESC_SNNA, '<span class="marca marca--norma">D.S. 42-F ' + esc(r.ref) + '</span>');
       }).join('');
+  }
+
+  function fPAltura(d) {
+    var e = d.escaleras;
+    return '<p class="intro">Verificación del supervisor del trabajo (formato FOR-GHS-002, sección V — trabajo en altura).</p>' +
+      '<div class="alerta alerta--aviso">' + esc(C.petar.notaAltura) + '</div>' +
+      C.petar.altura.map(function (r) { return preguntaV(d, 'altura', r); }).join('') +
+      campo('Vigía de trabajo en altura *', txt('vigias.altura.nombre', d.vigias.altura.nombre, 'Nombres y apellidos'), 'Firma de manera independiente en la pantalla de firmas.') +
+      '<h2 class="h-seccion">Uso de escaleras</h2>' +
+      '<div class="alerta alerta--aviso">Bloque sugerido: no forma parte del formato FOR-GHS-002. Parte de sus controles proviene del D.S. 42-F (Arts. 1221 a 1225); el resto es estándar interno por validar con SST.</div>' +
+      pregunta('¿Se usará escalera para esta tarea? *', 'escaleras.usa', e.usa, ESC_SN) +
+      (e.usa === 'si' ? C.petar.escaleras.map(function (r) { return preguntaV(d, 'escaleras', r); }).join('') : '');
+  }
+
+  function fPPeligrosos(d) {
+    var q = d.quimicos;
+    return '<div class="alerta alerta--aviso">Solo para tareas no rutinarias (por ejemplo: limpieza o mantenimiento de cabina u horno, trasvase o mezcla fuera de la cabina). La pintura rutinaria se gestiona con IPERC, PETS, HDS y ATS.</div>' +
+      campo('Productos químicos que se manipularán *', area('quimicos.productos', q.productos, 'Ej. thinner acrílico, catalizador, desengrasante', 2)) +
+      pregunta('¿Algún producto es inflamable? *', 'quimicos.inflamable', q.inflamable, ESC_SN) +
+      (M.calienteConInflamables(d)
+        ? '<div class="alerta alerta--mal"><strong>Trabajo en caliente con productos inflamables.</strong> Solo puede autorizarse con medición de LEL igual a 0 %. Si no hay medidor, separa las tareas en tiempo o lugar.</div>' +
+          campo('LEL medido (%)', txt('quimicos.lel', q.lel, 'Ej. 0', 'number', ' inputmode="decimal" step="0.1" min="0"'))
+        : '') +
+      '<h2 class="h-seccion">Verificación (FOR-GHS-002)</h2>' +
+      C.petar.peligrosos.map(function (r) { return preguntaV(d, 'peligrosos', r); }).join('');
+  }
+
+  function fPEvidencias(d) {
+    M.normalizar(d);
+    if (!st.fotosDisponibles) {
+      d.evidenciasNoDisponibles = true;
+      return '<div class="alerta alerta--aviso"><strong>Evidencias fotográficas no disponibles.</strong> Este navegador cayó al almacenamiento de respaldo localStorage. El PETAR puede continuar, pero no se guardarán fotos en este dispositivo.</div>';
+    }
+    d.evidenciasNoDisponibles = false;
+    var req = M.evidenciasRequeridas(d);
+    return '<p class="intro">Registra evidencias mínimas del trabajo, no una foto por cada pregunta. Las imágenes se comprimen y se guardan aparte del PETAR para mantener la aplicación ligera.</p>' +
+      '<div class="datos"><div class="dato"><span>Fotos del permiso</span><strong>' + M.totalFotos(d) + ' / ' + C.petar.fotos.maxTotal + '</strong></div></div>' +
+      req.map(function (ev) { return evidenciaHTML(d, ev); }).join('');
   }
 
   function fPEmergencia(d) {
@@ -402,7 +532,8 @@
         listaFirmantes(d.participantes, 'participantes') +
         (d.participantes.length < C.petar.maxParticipantes ? nuevoFirmante(true) : '<p class="nota">Máximo ' + C.petar.maxParticipantes + ' participantes.</p>') + '</section>' +
         '<section class="bloque"><h2 class="h-seccion">Supervisor de trabajo (sección VII)</h2>' + firmaFija('supervisorTrabajo', d.supervisorTrabajo, true) + '</section>' +
-        (d.tipos.caliente ? '<section class="bloque"><h2 class="h-seccion">Vigía</h2>' + firmaFija('vigia', d.vigia, false) + '</section>' : '') +
+        (d.tipos.caliente ? '<section class="bloque"><h2 class="h-seccion">Vigía · Trabajo en caliente</h2>' + firmaFija('vigias.caliente', d.vigias.caliente, false) + '</section>' : '') +
+        (d.tipos.altura ? '<section class="bloque"><h2 class="h-seccion">Vigía · Trabajo en altura</h2>' + firmaFija('vigias.altura', d.vigias.altura, false) + '</section>' : '') +
         '<section class="bloque"><h2 class="h-seccion">Autorización del trabajo</h2>' +
         C.petar.firmasAutorizacion.map(function (a) {
           return '<h3 class="h-sub">' + esc(a.cargo) + '</h3>' + (a.ayuda ? '<p class="nota">' + esc(a.ayuda) + '</p>' : '') + firmaFija('autorizacion.' + a.clave, d.autorizacion[a.clave], false);
@@ -494,6 +625,7 @@
 
   /* Resumen legible del documento */
   function resumen(d, editable) {
+    M.normalizar(d);
     function f(k, v) { return '<div class="dato"><span>' + esc(k) + '</span><strong>' + esc(v || '—') + '</strong></div>'; }
     function tit(t, paso) { return '<div class="titulo-fila"><h2>' + esc(t) + '</h2>' + (editable && paso !== undefined ? '<button class="enlace" data-accion="editar" data-paso="' + paso + '">Editar</button>' : '') + '</div>'; }
     function sn(v) { return v === 'si' ? 'Sí' : v === 'no' ? 'No' : v === 'na' ? 'N/A' : 'Sin responder'; }
@@ -531,7 +663,14 @@
       tit('III. EPP', P.indexOf('epp')) + '<p class="parrafo">' + esc(C.petar.epp.reduce(function (a, g) { return a.concat(g.items.filter(function (it) { return d.epp[it.id]; }).map(function (it) { return it.label; })); }, []).concat(d.eppOtros ? [d.eppOtros] : []).join(', ') || '—') + '</p>' +
       tit('IV. Requisitos de seguridad', P.indexOf('requisitos')) + lista(C.petar.requisitos, d.requisitos);
     if (d.tipos.caliente) h += tit('V. Trabajo en caliente', P.indexOf('caliente')) + lista(C.petar.caliente, d.caliente) +
-      '<p class="nota">Controles adicionales sugeridos (D.S. 42-F):</p>' + lista(C.petar.adicionales, d.adicionales) + '<div class="datos">' + f('Vigía', d.vigia.nombre) + '</div>';
+      '<p class="nota">Controles adicionales sugeridos (D.S. 42-F):</p>' + lista(C.petar.adicionales, d.adicionales) + '<div class="datos">' + f('Vigía caliente', d.vigias && d.vigias.caliente ? d.vigias.caliente.nombre : '') + '</div>';
+    if (d.tipos.altura) h += tit('V. Trabajo en altura', P.indexOf('altura')) + lista(C.petar.altura, d.altura) +
+      (d.escaleras.usa === 'si' ? '<p class="nota">Uso de escaleras (bloque sugerido):</p>' + lista(C.petar.escaleras, d.escaleras) : '<div class="datos">' + f('Uso de escalera', sn(d.escaleras.usa)) + '</div>');
+    if (d.tipos.peligrosos) h += tit('V. Materiales peligrosos', P.indexOf('peligrosos')) + '<div class="datos">' + f('Productos', d.quimicos.productos) +
+      f('¿Inflamables?', sn(d.quimicos.inflamable)) + (M.calienteConInflamables(d) ? f('LEL medido', d.quimicos.lel ? d.quimicos.lel + ' %' : 'Sin medición') : '') + '</div>' +
+      lista(C.petar.peligrosos, d.peligrosos);
+    if (d.tipos.caliente || d.tipos.altura || d.tipos.peligrosos) h += '<div class="datos">' + f('Fotografías de evidencia', String(M.totalFotos(d))) +
+      (M.fotosFaltantes(d).length ? f('Evidencias pendientes', String(M.fotosFaltantes(d).length)) : '') + '</div>';
     h += tit('VI. Emergencias', P.indexOf('emergencia')) + '<div class="datos">' + f('Encargado de sede', m.encargadoSede) + f('Supervisor / prevencionista', m.supervisorPrevencionista) +
       f('Rutas libres', sn(m.rutasLibres)) + f('Rutas indicadas', sn(m.rutasIndicadas)) + f('Contacto de emergencia', m.contacto + ' · ' + m.telefono) + '</div>';
     if (d.estado !== 'BORRADOR') {
@@ -582,11 +721,7 @@
       '<button class="btn btn--principal btn--ancho" data-accion="guardar-conexion">Guardar conexión</button>' +
       '<button class="btn btn--fantasma btn--ancho" data-accion="probar-envio"' + (window.Envio.configurado() ? '' : ' disabled') + '>Enviar un documento de prueba</button>' +
       '<p class="nota">La confirmación solo se muestra cuando el flujo devuelve una respuesta válida y coincidente. Un envío sin confirmar no se reintenta automáticamente.</p>' +
-      '<h2 class="h-seccion">Seguridad de Ajustes</h2>' +
-      '<p class="nota">Desde aquí SST puede cambiar la clave que permite entrar a esta pantalla.</p>' +
-      campo('Nueva clave SST', '<input id="sstNuevaClave" type="password" autocomplete="new-password" placeholder="Mínimo 6 caracteres">') +
-      campo('Confirmar nueva clave SST', '<input id="sstNuevaClave2" type="password" autocomplete="new-password" placeholder="Repite la nueva clave">') +
-      '<button class="btn btn--fantasma btn--ancho" data-accion="cambiar-clave-sst">Cambiar clave de acceso SST</button>' +
+      '<h2 class="h-seccion">Seguridad de Ajustes</h2>' + campo('Nueva clave SST', '<input id="sstNuevaClave" type="password" autocomplete="new-password" placeholder="Mínimo 6 caracteres">') + campo('Confirmar nueva clave SST', '<input id="sstNuevaClave2" type="password" autocomplete="new-password" placeholder="Repite la nueva clave">') + '<button class="btn btn--fantasma btn--ancho" data-accion="cambiar-clave-sst">Cambiar clave de acceso SST</button>' +
       '<h2 class="h-seccion">Este celular</h2><div class="datos">' +
       '<div class="dato"><span>Almacenamiento</span><strong>' + esc(st.motor) + '</strong></div>' +
       '<div class="dato"><span>Versión</span><strong>' + esc(C.version) + '</strong></div></div></section>';
@@ -594,19 +729,18 @@
 
   /* ============================ PDF visor =========================== */
   function verPDF(d) {
-    var url;
-    try { url = window.DocPDF.blobUrl(d); } catch (e) { UI.aviso('No se pudo generar el PDF: ' + e.message, 'mal'); return; }
-    var fondo = document.createElement('div');
-    fondo.className = 'modal modal--pdf';
-    fondo.innerHTML = '<div class="visor"><div class="visor__barra"><strong>' + esc(d.numero) + '</strong><button class="enlace" data-cerrar>Cerrar</button></div>' +
-      '<iframe class="visor__marco" src="' + url + '" title="Documento"></iframe>' +
-      '<div class="visor__acciones"><button class="btn btn--fantasma" data-nueva>Abrir en otra pestaña</button><button class="btn btn--principal" data-descargar>Descargar</button></div></div>';
-    document.body.appendChild(fondo);
-    fondo.addEventListener('click', function (ev) {
-      if (ev.target.hasAttribute('data-descargar')) window.DocPDF.descargar(d);
-      else if (ev.target.hasAttribute('data-nueva')) window.open(url, '_blank');
-      else if (ev.target.hasAttribute('data-cerrar') || ev.target === fondo) { URL.revokeObjectURL(url); fondo.remove(); }
-    });
+    UI.aviso('Generando PDF…');
+    window.DocPDF.blobUrl(d).then(function (url) {
+      var fondo = document.createElement('div'); fondo.className = 'modal modal--pdf';
+      fondo.innerHTML = '<div class="visor"><div class="visor__barra"><strong>' + esc(d.numero) + '</strong><button class="enlace" data-cerrar>Cerrar</button></div>' +
+        '<iframe class="visor__marco" src="' + url + '" title="Documento"></iframe><div class="visor__acciones"><button class="btn btn--fantasma" data-nueva>Abrir en otra pestaña</button><button class="btn btn--principal" data-descargar>Descargar</button></div></div>';
+      document.body.appendChild(fondo);
+      fondo.addEventListener('click', function (ev) {
+        if (ev.target.hasAttribute('data-descargar')) window.DocPDF.descargar(d).catch(function () { UI.aviso('No se pudo descargar el PDF.', 'mal'); });
+        else if (ev.target.hasAttribute('data-nueva')) window.open(url, '_blank');
+        else if (ev.target.hasAttribute('data-cerrar') || ev.target === fondo) { URL.revokeObjectURL(url); fondo.remove(); }
+      });
+    }).catch(function (e) { UI.aviso('No se pudo generar el PDF: ' + (e.message || e), 'mal'); });
   }
 
   /* ============================ Envío =============================== */
@@ -638,6 +772,7 @@
   function nuevo(tipo, ats) {
     return window.Store.siguienteNumero(tipo).then(function (n) {
       st.doc = tipo === 'ATS' ? M.nuevoATS(n, st.usuario) : M.nuevoPETAR(n, st.usuario, ats);
+      if (tipo === 'PETAR') st.doc.evidenciasNoDisponibles = !window.Store.fotosSoportadas();
       return window.Store.guardar(st.doc);
     }).then(function () { ir('form', 0); UI.aviso(st.doc.numero + ' creado'); });
   }
@@ -645,7 +780,7 @@
   function abrir(id, pantalla) {
     return window.Store.obtener(id).then(function (d) {
       if (!d) { UI.aviso('El documento ya no existe.', 'mal'); return; }
-      st.doc = d; ir(pantalla || 'detalle', 0);
+      st.doc = d; if (d.tipo === 'PETAR') { M.normalizar(d); d.evidenciasNoDisponibles = !window.Store.fotosSoportadas(); } ir(pantalla || 'detalle', 0);
     });
   }
 
@@ -671,28 +806,14 @@
         break;
       case 'cambiar-usuario': ir('usuario'); break;
       case 'ir-historial': ir('historial'); break;
-      case 'ir-acceso-sst':
-        st.volverA = st.usuario ? 'inicio' : 'usuario'; ir('accesoSST'); break;
-      case 'ir-ajustes':
-        st.volverA = st.usuario ? 'inicio' : 'usuario'; ir(st.sstAutorizado ? 'ajustes' : 'accesoSST'); break;
+      case 'ir-acceso-sst': st.volverA = st.usuario ? 'inicio' : 'usuario'; ir('accesoSST'); break;
+      case 'ir-ajustes': st.volverA = st.usuario ? 'inicio' : 'usuario'; ir(st.sstAutorizado ? 'ajustes' : 'accesoSST'); break;
       case 'crear-clave-sst':
         var claveNueva = $('#sstClave').value, claveNueva2 = $('#sstClave2').value;
-        if (claveNueva.length < 6) { UI.aviso('La clave SST debe tener al menos 6 caracteres.', 'mal'); return; }
-        if (claveNueva !== claveNueva2) { UI.aviso('Las claves SST no coinciden.', 'mal'); return; }
-        hashClaveAjustes(claveNueva).then(function (hash) {
-          st.claveAjustesHash = hash;
-          return window.Store.pref('claveAjustesHash_v06', hash);
-        }).then(function () { st.sstAutorizado = true; UI.aviso('Clave SST creada', 'ok'); ir('ajustes'); })
-          .catch(function (e) { UI.aviso(e.message || 'No se pudo crear la clave SST.', 'mal'); });
-        break;
+        if (claveNueva.length < 6 || claveNueva !== claveNueva2) { UI.aviso(claveNueva.length < 6 ? 'La clave SST debe tener al menos 6 caracteres.' : 'Las claves SST no coinciden.', 'mal'); return; }
+        hashClaveAjustes(claveNueva).then(function (hash) { st.claveAjustesHash = hash; return window.Store.pref('claveAjustesHash_v07', hash); }).then(function () { st.sstAutorizado = true; ir('ajustes'); }); break;
       case 'validar-clave-sst':
-        var claveIngreso = $('#sstClave').value;
-        if (!claveIngreso) { UI.aviso('Ingresa la clave SST.', 'mal'); return; }
-        hashClaveAjustes(claveIngreso).then(function (hash) {
-          if (hash !== st.claveAjustesHash) { UI.aviso('Clave SST incorrecta.', 'mal'); return; }
-          st.sstAutorizado = true; ir('ajustes');
-        }).catch(function (e) { UI.aviso(e.message || 'No se pudo validar la clave SST.', 'mal'); });
-        break;
+        hashClaveAjustes($('#sstClave').value).then(function (hash) { if (hash !== st.claveAjustesHash) { UI.aviso('Clave SST incorrecta.', 'mal'); return; } st.sstAutorizado = true; ir('ajustes'); }); break;
       case 'filtro': st.filtroTipo = b.dataset.valor; render(); break;
       case 'nuevo-ats': nuevo('ATS'); break;
       case 'nuevo-petar': window.Store.todos().then(function (l) { st.lista = l; ir('elegirATS'); }); break;
@@ -723,10 +844,20 @@
         guardarLuego(); quieto();
         break;
       case 'toggle':
-        setPath(d, b.dataset.ruta, !getPath(d, b.dataset.ruta));
-        if (d.tipo === 'ATS' && b.dataset.ruta === 'epp.basico') d.epp.basico = true;
-        guardarLuego(); quieto();
-        break;
+        var rutaToggle = b.dataset.ruta, nuevoValor = !getPath(d, rutaToggle);
+        if (d.tipo === 'PETAR' && rutaToggle.indexOf('tipos.') === 0 && !nuevoValor) {
+          var tipoOff = rutaToggle.split('.')[1], refsOff = M.limpiarEvidenciasTipo(d, tipoOff);
+          setPath(d, rutaToggle, false); window.Store.eliminarFotos(refsOff).catch(function () {}); guardarLuego(); quieto(); break;
+        }
+        setPath(d, rutaToggle, nuevoValor);
+        if (d.tipo === 'ATS' && rutaToggle === 'epp.basico') d.epp.basico = true;
+        if (d.tipo === 'PETAR' && rutaToggle.indexOf('tipos.') === 0 && nuevoValor) (C.petar.eppPorTipo[rutaToggle.split('.')[1]] || []).forEach(function (k) { d.epp[k] = true; });
+        guardarLuego(); quieto(); break;
+      case 'quitar-foto':
+        var lf = (d.evidencias || {})[b.dataset.ruta], idFoto = b.dataset.id;
+        if (lf) { d.evidencias[b.dataset.ruta] = lf.filter(function (f) { return f.id !== idFoto; }); if (!d.evidencias[b.dataset.ruta].length) delete d.evidencias[b.dataset.ruta]; }
+        window.Store.eliminarFoto(idFoto).catch(function () {}); guardarLuego(); quieto(); break;
+      case 'ver-foto': verFoto(b.dataset.id); break;
       case 'agregar-paso': d.pasos.push({ paso: '', evento: '', critico: '', medidas: '', responsable: '' }); guardarLuego(); quieto(); break;
       case 'quitar-paso': d.pasos.splice(Number(b.dataset.i), 1); guardarLuego(); quieto(); break;
       case 'ejemplo-pasos':
@@ -735,7 +866,7 @@
         break;
       case 'guardar-salir': guardarYa().then(function () { UI.aviso('Guardado'); ir('inicio'); }); break;
       case 'ver-pdf': verPDF(d); break;
-      case 'descargar-pdf': window.DocPDF.descargar(d); break;
+      case 'descargar-pdf': window.DocPDF.descargar(d).catch(function () { UI.aviso('No se pudo descargar el PDF.', 'mal'); }); break;
 
       /* Firmas */
       case 'ir-firmas':
@@ -780,7 +911,9 @@
       case 'eliminar':
         UI.confirmar({ titulo: 'Eliminar borrador', texto: 'Se borrará ' + d.numero + ' de este celular.', aceptar: 'Eliminar', peligro: true }).then(function (ok) {
           if (!ok) return;
-          window.Store.eliminar(d.id).then(function () { st.doc = null; ir('inicio'); });
+          var fotoIds = [];
+          Object.keys(d.evidencias || {}).forEach(function (ruta) { (d.evidencias[ruta] || []).forEach(function (f) { if (f.id) fotoIds.push(f.id); }); });
+          window.Store.eliminarFotos(fotoIds).catch(function () {}).then(function () { return window.Store.eliminar(d.id); }).then(function () { st.doc = null; ir('inicio'); });
         });
         break;
 
@@ -799,14 +932,8 @@
       case 'probar-envio': probarEnvio(); break;
       case 'cambiar-clave-sst':
         var nuevaSst = $('#sstNuevaClave').value, nuevaSst2 = $('#sstNuevaClave2').value;
-        if (nuevaSst.length < 6) { UI.aviso('La nueva clave SST debe tener al menos 6 caracteres.', 'mal'); return; }
-        if (nuevaSst !== nuevaSst2) { UI.aviso('Las nuevas claves SST no coinciden.', 'mal'); return; }
-        hashClaveAjustes(nuevaSst).then(function (hash) {
-          st.claveAjustesHash = hash;
-          return window.Store.pref('claveAjustesHash_v06', hash);
-        }).then(function () { UI.aviso('Clave de acceso SST actualizada', 'ok'); render(); })
-          .catch(function (e) { UI.aviso(e.message || 'No se pudo cambiar la clave SST.', 'mal'); });
-        break;
+        if (nuevaSst.length < 6 || nuevaSst !== nuevaSst2) { UI.aviso(nuevaSst.length < 6 ? 'La nueva clave SST debe tener al menos 6 caracteres.' : 'Las nuevas claves SST no coinciden.', 'mal'); return; }
+        hashClaveAjustes(nuevaSst).then(function (hash) { st.claveAjustesHash = hash; return window.Store.pref('claveAjustesHash_v07', hash); }).then(function () { UI.aviso('Clave de acceso SST actualizada', 'ok'); render(); }); break;
     }
   }
 
@@ -910,6 +1037,7 @@
     app.addEventListener('click', clic);
     app.addEventListener('input', entrada);
     app.addEventListener('change', entrada);
+    app.addEventListener('change', function (ev) { if (ev.target && ev.target.dataset && ev.target.dataset.foto) tomarFoto(ev.target); });
     atras.addEventListener('click', function () {
       var p = st.pantalla;
       if (p === 'form') return st.paso > 0 ? ir('form', st.paso - 1) : guardarYa().then(function () { ir('inicio'); });
@@ -928,13 +1056,14 @@
     window.Store.init().then(function (m) {
       st.motor = m;
       $('#motor').textContent = 'Copia en este celular · ' + m;
-      return Promise.all([window.Store.pref('usuario'), window.Store.pref('flujoUrl_v05'), window.Store.pref('claveArea_v06'), window.Store.pref('claveAjustesHash_v06')]);
+      st.fotosDisponibles = window.Store.fotosSoportadas();
+      return Promise.all([window.Store.pref('usuario'), window.Store.pref('flujoUrl_v05'), window.Store.pref('claveArea_v06'), window.Store.pref('claveAjustesHash_v07'), window.Store.pref('claveAjustesHash_v06')]);
     }).then(function (r) {
       // La URL anterior contenía una clave publicada; no se reutiliza.
       window.Store.pref('flujoUrl', '').catch(errorGuardado);
       if (r[1]) C.flujoUrl = r[1];
       if (r[2]) C.claveArea = r[2];
-      st.claveAjustesHash = r[3] || '';
+      st.claveAjustesHash = r[3] || r[4] || '';
       st.usuario = r[0] || null;
       ir(st.usuario ? 'inicio' : 'usuario');
     });

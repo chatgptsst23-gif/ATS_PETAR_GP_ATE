@@ -1,5 +1,5 @@
 /* =====================================================================
-   CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v06
+   CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v07
    ATS (FOR-GHS-001 v01) y PETAR (FOR-GHS-002 v01) — sede Ate, área B&P
    ---------------------------------------------------------------------
    Todo el contenido de los formatos vive aquí. Cambiar una pregunta,
@@ -18,7 +18,7 @@ window.SST_CONFIG = {
   sistema: 'Gestión Digital SST',
   sede: 'Ate',
   areaPorDefecto: 'Planchado y pintura (B&P)',
-  version: 'v06 (piloto)',
+  version: 'v07 (piloto integrado)',
 
   /* URL del flujo de Power Automate ("Cuando se recibe una solicitud HTTP").
      Vacía = la app funciona igual, pero no envía correo ni guarda en SharePoint. */
@@ -67,13 +67,14 @@ window.SST_CONFIG = {
     leyendaAlarma: 'Este permiso queda cancelado al escucharse la alarma o aviso de emergencia',
     maxParticipantes: 10,
 
-    /* Sección I — tipos de trabajo. Solo "caliente" está habilitado en la demo. */
+    /* Sección I — tipos de trabajo habilitados en el piloto: caliente, altura,
+       materiales peligrosos (solo tareas no rutinarias) y no rutinario. */
     tipos: [
       { id: 'confinado',   label: 'Trabajo en espacio confinado',   activo: false },
-      { id: 'altura',      label: 'Trabajo en altura',              activo: false },
+      { id: 'altura',      label: 'Trabajo en altura',              activo: true },
       { id: 'caliente',    label: 'Trabajo en caliente',            activo: true },
       { id: 'izamiento',   label: 'Trabajo de izamiento',           activo: false },
-      { id: 'peligrosos',  label: 'Trabajo con materiales peligrosos', activo: false },
+      { id: 'peligrosos',  label: 'Trabajo con materiales peligrosos (no rutinario)', activo: true },
       { id: 'energia',     label: 'Trabajo con energía peligrosa',  activo: false },
       { id: 'excavacion',  label: 'Trabajo de excavación y/o perforación', activo: false },
       { id: 'no_rutinario',label: 'Trabajo no rutinario',           activo: true }
@@ -134,12 +135,12 @@ window.SST_CONFIG = {
 
     /* Sección V — Trabajo en caliente (supervisor del trabajo) */
     caliente: [
-      { id: 'c_radio', label: '¿Se ha alejado y/o cubierto el material inflamable en un radio de 12 metros?', nivel: 'critico', origen: 'FOR-GHS-002' },
-      { id: 'c_extintor', label: '¿Se cuenta con un extintor de PQS de no menos de 9 kg?', nivel: 'critico', origen: 'FOR-GHS-002' },
+      { id: 'c_radio', label: '¿Se ha alejado y/o cubierto el material inflamable en un radio de 12 metros?', nivel: 'critico', origen: 'FOR-GHS-002', evidencia: 'Área despejada en radio de 12 m' },
+      { id: 'c_extintor', label: '¿Se cuenta con un extintor de PQS de no menos de 9 kg?', nivel: 'critico', origen: 'FOR-GHS-002', evidencia: 'Extintor PQS en el punto de trabajo' },
       { id: 'c_lel', label: 'En caso de ser un espacio cerrado: ¿se monitoreó el lugar de trabajo y el LEL (límite inferior de explosividad) es igual a 0%? ¿El área está ventilada?', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true },
       { id: 'c_paredes', label: 'En caso el trabajo se realice sobre paredes o techos: ¿se identificó que la construcción no es combustible y no presenta revestimiento combustible por ningún lado?', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true },
-      { id: 'c_herramientas', label: '¿Las herramientas eléctricas y la máquina de soldar cuentan con cables y conexiones en buen estado, libres de empalmes, guardas de protección y puestas a tierra?', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true },
-      { id: 'c_biombos', label: '¿Se cuenta con biombos para realizar el trabajo?', nivel: 'critico', origen: 'FOR-GHS-002' }
+      { id: 'c_herramientas', label: '¿Las herramientas eléctricas y la máquina de soldar cuentan con cables y conexiones en buen estado, libres de empalmes, guardas de protección y puestas a tierra?', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true, evidencia: 'Equipo de soldar o cilindros de oxicorte' },
+      { id: 'c_biombos', label: '¿Se cuenta con biombos para realizar el trabajo?', nivel: 'critico', origen: 'FOR-GHS-002', evidencia: 'Biombos instalados' }
     ],
 
     /* Controles adicionales sugeridos — NO están en FOR-GHS-002 (por validar con SST) */
@@ -150,6 +151,65 @@ window.SST_CONFIG = {
       { id: 'a_mesa', label: 'Piezas pequeñas o medianas sobre mesa o banco incombustible, no sobre piso de concreto', nivel: 'requerido', origen: 'DS 42-F', ref: 'Art. 262' }
     ],
 
+    /* Sección V — Trabajo en altura (FOR-GHS-002). */
+    altura: [
+      { id: 'h_andamios', label: '¿Los andamios y plataformas están asegurados para evitar su caída, desmoronamiento o deslizamiento?', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true, evidencia: 'Andamio o plataforma armada' },
+      { id: 'h_anclaje', label: '¿Existen puntos de anclaje adecuados para que el trabajador se enganche?', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true, evidencia: 'Punto de anclaje o línea de vida' },
+      { id: 'h_arnes', label: '¿Cada persona que realizará el ascenso/descenso utilizará arnés y líneas de anclaje certificados y de acuerdo al estándar de la empresa?', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true, evidencia: 'Trabajador con arnés y línea de anclaje puestos' },
+      { id: 'h_capacitacion', label: '¿Cada persona ha recibido la capacitación para trabajo en altura?', nivel: 'critico', origen: 'FOR-GHS-002' },
+      { id: 'h_inspeccion', label: '¿Se ha realizado la inspección del sistema de detención de caídas (arnés y línea de anclaje: estado de correas, hebillas, ganchos, etc.)?', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true },
+      { id: 'h_aptitud', label: '¿Las personas que realizarán trabajos en altura cuentan con aptitud médica para realizar la actividad?', nivel: 'critico', origen: 'FOR-GHS-002' }
+    ],
+    notaAltura: 'Para trabajar sobre techos de vehículos, acceder desde andamio o plataforma con barandas; no pisar la carrocería. Las plataformas portátiles deben ser sólidas y con barandillas (D.S. 42-F, Arts. 1226 y 1227).',
+
+    /* Uso de escaleras — NO está en FOR-GHS-002. Bloque sugerido para validación de SST. */
+    escaleras: [
+      { id: 'e_estado', label: 'Escalera en buenas condiciones e inspeccionada (peldaños, largueros y zapatas antideslizantes sin daños)', nivel: 'critico', origen: 'DS 42-F', ref: 'Art. 1221', evidencia: 'Escalera en el punto de trabajo' },
+      { id: 'e_angulo', label: 'Escalera de apoyo colocada con la base separada de la pared 1/4 de su largo', nivel: 'requerido', origen: 'DS 42-F', ref: 'Art. 1222', admiteNA: true },
+      { id: 'e_cierres', label: 'Escalera de extensión con sus dos cierres automáticos operativos', nivel: 'requerido', origen: 'DS 42-F', ref: 'Art. 1223', admiteNA: true },
+      { id: 'e_tijera', label: 'Escalera de tijera de no más de 6 m de altura', nivel: 'requerido', origen: 'DS 42-F', ref: 'Art. 1225', admiteNA: true },
+      { id: 'e_superficie', label: 'Apoyada sobre superficie firme, nivelada y seca', nivel: 'requerido', origen: 'interno' },
+      { id: 'e_contacto', label: 'Se mantienen tres puntos de contacto y no se trabaja desde los últimos peldaños', nivel: 'requerido', origen: 'interno' }
+    ],
+
+    /* Sección V — Trabajo con materiales peligrosos (FOR-GHS-002). Solo tareas no rutinarias:
+       la aplicación rutinaria de pintura en cabina u horno se gestiona con IPERC, PETS, HDS y ATS. */
+    peligrosos: [
+      { id: 'q_ventilacion', label: '¿El lugar donde se realizará el trabajo cuenta con ventilación adecuada?', nivel: 'critico', origen: 'FOR-GHS-002', evidencia: 'Ventilación o extracción funcionando' },
+      { id: 'q_hds', label: '¿Los trabajadores conocen el contenido de las Hojas de Seguridad (HDS/MSDS) de los materiales que usan y estas se encuentran en el lugar de trabajo?', nivel: 'critico', origen: 'FOR-GHS-002' },
+      { id: 'q_envases', label: '¿Los envases son originales y están correctamente identificados y rotulados con el nombre del producto?', nivel: 'critico', origen: 'FOR-GHS-002', evidencia: 'Envases rotulados y HDS disponible' },
+      { id: 'q_nfpa', label: '¿El producto cuenta con la identificación del rombo de la NFPA?', nivel: 'critico', origen: 'FOR-GHS-002' },
+      { id: 'q_atmosfera', label: '¿Se ha realizado la evaluación o medición de atmósferas peligrosas y el área se encuentra ventilada? (N/A: área abierta y ventilada, sin equipo de medición)', nivel: 'critico', origen: 'FOR-GHS-002', admiteNA: true },
+      { id: 'q_epp', label: '¿El trabajador que manipulará los productos químicos tiene sus EPP correspondientes según lo indica la Hoja de Seguridad?', nivel: 'critico', origen: 'FOR-GHS-002' },
+      { id: 'q_respiradores', label: '¿Los respiradores y filtros son los adecuados para el riesgo expuesto al trabajador?', nivel: 'critico', origen: 'FOR-GHS-002', evidencia: 'Trabajador con EPP respiratorio' }
+    ],
+
+    /* EPP que se marca automáticamente al activar un tipo de trabajo (se puede desmarcar). */
+    eppPorTipo: {
+      caliente: ['auditiva', 'guantes_cuero', 'careta_soldar', 'lentes_oxicorte', 'guantes_soldar', 'mandil'],
+      altura: ['arnes', 'linea_doble'],
+      peligrosos: ['resp_media', 'filtro_vapores', 'guantes_quimicos', 'lentes_ventilacion']
+    },
+
+    /* Evidencias mínimas por tipo de trabajo. No se exige una foto por pregunta. */
+    evidenciasPorTipo: {
+      caliente: [
+        { id: 'area', label: 'Área de trabajo acondicionada', ayuda: 'Vista general: zona despejada, delimitación y condiciones del entorno.' },
+        { id: 'control', label: 'Equipos y medios de control', ayuda: 'Equipo de trabajo y controles relevantes, por ejemplo extintor, biombo o conexiones.' }
+      ],
+      altura: [
+        { id: 'acceso', label: 'Sistema de acceso y trabajo', ayuda: 'Escalera, andamio o plataforma realmente utilizada para la tarea.' },
+        { id: 'caidas', label: 'Protección contra caídas', ayuda: 'Arnés, línea de anclaje y punto de anclaje o línea de vida aplicable.' }
+      ],
+      peligrosos: [
+        { id: 'producto', label: 'Producto e identificación', ayuda: 'Envases rotulados y HDS disponible para los productos utilizados.' },
+        { id: 'control', label: 'Controles de exposición', ayuda: 'Ventilación/extracción y EPP respiratorio o químico aplicable.' }
+      ]
+    },
+
+    /* Fotos optimizadas: Blob en IndexedDB, miniaturas y máximo 8 por permiso. */
+    fotos: { maxPorEvidencia: 2, maxTotal: 8, anchoMaximoPx: 1024, miniaturaPx: 240, calidadJpeg: 0.65, calidadMiniatura: 0.58 },
+
     /* Sección VI — Protocolos de respuesta ante emergencia */
     emergencias: ['Emergencias médicas', 'Incendio', 'Tsunami', 'Sismo', 'Derrame de materiales'],
     equiposEmergencia: ['Botiquín de primeros auxilios', 'Camilla', 'Trípode para espacio confinado', 'Extintor', 'Equipos de comunicación para emergencias'],
@@ -157,7 +217,7 @@ window.SST_CONFIG = {
     firmasAutorizacion: [
       { clave: 'supervisor', cargo: 'Supervisor del trabajo', ayuda: 'Supervisor o jefe de Grupo Pana, o responsable por los servicios que brinda el contratista' },
       { clave: 'area',       cargo: 'Responsable del área', ayuda: 'Donde se realizará el trabajo o usuario' },
-      { clave: 'ejecutante', cargo: 'Ejecutante del trabajo', ayuda: '' }
+      { clave: 'ejecutante', cargo: 'Ejecutante del trabajo', ayuda: 'Técnico líder o ejecutante. Debe ser una persona distinta del supervisor del trabajo.' }
     ],
 
     duracionMaxHoras: null   /* Grupo Pana define el máximo; hoy: "el día" */

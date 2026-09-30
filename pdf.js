@@ -1,5 +1,5 @@
 /* =====================================================================
-   DOCUMENTO PDF — window.DocPDF · v06
+   DOCUMENTO PDF — window.DocPDF · v07
    Genera el ATS (FOR-GHS-001) y el PETAR (FOR-GHS-002) en A4.
    Todas las celdas ajustan su alto al texto: nada se corta.
    ===================================================================== */
@@ -218,6 +218,31 @@
 
   Lienzo.prototype.sep = function (mm) { this.y += (mm || 2.5); };
 
+  /* Fotos en dos columnas con leyenda; cada foto conserva su proporción. */
+  Lienzo.prototype.fotos = function (lista) {
+    var doc = this.doc, self = this, gap = 4, w = (U - gap) / 2, maxH = 78;
+    for (var i = 0; i < lista.length; i += 2) {
+      var par = lista.slice(i, i + 2);
+      var dims = par.map(function (f) {
+        var r = (f.alto && f.ancho) ? f.alto / f.ancho : 0.75, h = Math.min(maxH, w * r);
+        return { h: h, w: h / r };
+      });
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(6.6);
+      var leyendas = par.map(function (f) { return doc.splitTextToSize(f.leyenda, w); });
+      var alto = Math.max.apply(null, dims.map(function (x) { return x.h; })) +
+        Math.max.apply(null, leyendas.map(function (l) { return l.length; })) * 2.9 + 5;
+      this.espacio(alto);
+      par.forEach(function (f, j) {
+        var x = M + j * (w + gap);
+        try { doc.addImage(f.imagen, 'JPEG', x, self.y, dims[j].w, dims[j].h); } catch (e) { /* foto ilegible */ }
+        doc.setDrawColor.apply(doc, LINEA); doc.rect(x, self.y, dims[j].w, dims[j].h);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(6.6); doc.setTextColor.apply(doc, TINTA);
+        doc.text(leyendas[j], x, self.y + dims[j].h + 3.4);
+      });
+      this.y += alto;
+    }
+  };
+
   Lienzo.prototype.cerrar = function () {
     var doc = this.doc, d = this.d, n = doc.getNumberOfPages();
     var marca = { BORRADOR: 'BORRADOR', CANCELADO: 'CANCELADO', VENCIDO: 'VENCIDO' }[window.Modelo.estadoVisible(d)];
@@ -279,8 +304,22 @@
   }
 
   /* =========================== PETAR ============================== */
-  function petar(d) {
-    var L = new Lienzo(d), s = d.descripcion;
+  function indiceFotos(d, fotos) {
+    var lista = [], n = 0, mapa = fotos || {};
+    window.Modelo.evidenciasRequeridas(d).forEach(function (ev) {
+      window.Modelo.fotosDe(d, ev.ruta).forEach(function (f) {
+        if (!mapa[f.id]) return;
+        n++;
+        lista.push({ imagen: mapa[f.id], ancho: f.ancho, alto: f.alto,
+          leyenda: 'F' + n + ' · ' + ev.texto + ' · ' + fmtFH(f.fechaHora) });
+      });
+    });
+    return { lista: lista };
+  }
+
+  function petar(d, fotos) {
+    if (window.Modelo.normalizar) window.Modelo.normalizar(d);
+    var L = new Lienzo(d), s = d.descripcion, idx = indiceFotos(d, fotos);
     L.banda('I. DESCRIPCIÓN DEL TRABAJO');
     L.fila([['Fecha', fmtF(s.fecha), 0.2], ['Hora inicial', s.horaInicio, 0.15], ['Hora final', s.horaFin, 0.15], ['ATS de referencia', s.atsRef, 0.25], ['Sede', s.sede, 0.25]]);
     L.fila([['Ejecuta (Grupo Pana / Contratista)', s.ejecutaTipo + ' — ' + s.ejecutaNombre, 1]]);
@@ -314,7 +353,43 @@
       L.nota('Controles adicionales sugeridos (D.S. 42-F). No forman parte del formato FOR-GHS-002; se incluyen para validación de SST.');
       L.tabla([{ t: 'Control adicional', w: 0.7 }, { t: 'Referencia', w: 0.15, a: 'center' }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
         C.petar.adicionales.map(function (r) { return [r.label, 'D.S. 42-F ' + r.ref, sn(d.adicionales[r.id])]; }));
-      L.firmas([{ titulo: 'Vigía', nombre: d.vigia.nombre, detalle: d.vigia.fechaHora ? 'Firmó ' + fmtFH(d.vigia.fechaHora) : '', firma: d.vigia.firma }], 3);
+      L.sep();
+    }
+
+    if (d.tipos.altura) {
+      L.banda('V. TRABAJO DE ALTO RIESGO — TRABAJO EN ALTURA (SUPERVISOR DEL TRABAJO)');
+      L.tabla([{ t: 'Verificación', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
+        C.petar.altura.map(function (r) { return [r.label, sn(d.altura[r.id])]; }));
+      L.nota(C.petar.notaAltura);
+      if (d.escaleras.usa === 'si') {
+        L.nota('Uso de escaleras: bloque sugerido, no forma parte del formato FOR-GHS-002. Se incluye para validación de SST.');
+        L.tabla([{ t: 'Control', w: 0.62 }, { t: 'Origen', w: 0.23, a: 'center' }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
+          C.petar.escaleras.map(function (r) {
+            return [r.label, r.origen === 'DS 42-F' ? 'D.S. 42-F ' + r.ref : 'Estándar interno', sn(d.escaleras[r.id])];
+          }));
+      } else {
+        L.fila([['Uso de escalera', d.escaleras.usa === 'no' ? 'No se usará escalera' : 'Sin responder', 1]]);
+      }
+      L.sep();
+    }
+
+    if (d.tipos.peligrosos) {
+      L.banda('V. TRABAJO CON MATERIALES PELIGROSOS — TAREA NO RUTINARIA');
+      L.fila([['Productos químicos que se manipularán', d.quimicos.productos, 0.7], ['¿Algún producto es inflamable?', sn(d.quimicos.inflamable), 0.3]]);
+      if (window.Modelo.calienteConInflamables(d)) {
+        L.fila([['Trabajo en caliente con productos inflamables — LEL medido', d.quimicos.lel !== '' && d.quimicos.lel != null ? d.quimicos.lel + ' %' : 'SIN MEDICIÓN', 1]]);
+      }
+      L.tabla([{ t: 'Verificación', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
+        C.petar.peligrosos.map(function (r) { return [r.label, sn(d.peligrosos[r.id])]; }));
+      L.sep();
+    }
+
+    if (d.tipos.caliente) {
+      L.firmas([{ titulo: 'Vigía · trabajo en caliente', nombre: d.vigias.caliente.nombre, detalle: d.vigias.caliente.fechaHora ? 'Firmó ' + fmtFH(d.vigias.caliente.fechaHora) : '', firma: d.vigias.caliente.firma }], 3);
+      L.sep();
+    }
+    if (d.tipos.altura) {
+      L.firmas([{ titulo: 'Vigía · trabajo en altura', nombre: d.vigias.altura.nombre, detalle: d.vigias.altura.fechaHora ? 'Firmó ' + fmtFH(d.vigias.altura.fechaHora) : '', firma: d.vigias.altura.firma }], 3);
       L.sep();
     }
 
@@ -367,6 +442,12 @@
       var x = d.cierre[a.clave];
       return { titulo: a.cargo, nombre: x.nombre, detalle: x.fechaHora ? 'Fecha y hora: ' + fmtFH(x.fechaHora) : 'Pendiente de cierre', firma: x.firma };
     }), 3);
+    if (idx.lista.length) {
+      L.sep();
+      L.banda('REGISTRO FOTOGRÁFICO (ESTÁNDAR INTERNO DE EVIDENCIAS)');
+      L.nota('Evidencias mínimas tomadas desde la aplicación. Se optimizan para reducir tamaño y cada una conserva número de permiso, fecha y hora de captura.');
+      L.fotos(idx.lista);
+    }
     bitacora(L, d);
     return L.cerrar();
   }
@@ -378,16 +459,30 @@
       d.bitacora.map(function (b) { return [fmtFH(b.fechaHora), window.Modelo.etiquetaEstado(b.estado), b.usuario, b.comentario]; }));
   }
 
-  function generar(d) { return d.tipo === 'ATS' ? ats(d) : petar(d); }
+  function generar(d, fotos) { return d.tipo === 'ATS' ? ats(d) : petar(d, fotos); }
+
+  function cargarFotos(d) {
+    if (d.tipo !== 'PETAR' || !window.Store || !window.Store.obtenerFoto || d.evidenciasNoDisponibles) return Promise.resolve({});
+    var mapa = {}, refs = window.Modelo.fotosActivas(d);
+    return refs.reduce(function (p, f) {
+      return p.then(function () { return window.Store.obtenerFoto(f.id); }).then(function (r) {
+        if (!r || !r.blob || !r.blob.arrayBuffer) return;
+        return r.blob.arrayBuffer().then(function (ab) { mapa[f.id] = new Uint8Array(ab); });
+      });
+    }, Promise.resolve()).then(function () { return mapa; });
+  }
+
+  function generarAsync(d) { return cargarFotos(d).then(function (fotos) { return generar(d, fotos); }); }
 
   window.DocPDF = {
     generar: generar,
+    generarAsync: generarAsync,
     nombreArchivo: function (d) {
       var e = window.Modelo.estadoVisible(d).toLowerCase();
       return ((d.prueba ? 'PRUEBA_' : '') + d.numero + '_' + e).toLowerCase().replace(/[^a-z0-9_-]/g, '') + '.pdf';
     },
-    base64: function (d) { return generar(d).output('datauristring').split(',')[1]; },
-    blobUrl: function (d) { return URL.createObjectURL(generar(d).output('blob')); },
-    descargar: function (d) { generar(d).save(window.DocPDF.nombreArchivo(d)); }
+    base64: function (d) { return generarAsync(d).then(function (pdf) { return pdf.output('datauristring').split(',')[1]; }); },
+    blobUrl: function (d) { return generarAsync(d).then(function (pdf) { return URL.createObjectURL(pdf.output('blob')); }); },
+    descargar: function (d) { return generarAsync(d).then(function (pdf) { pdf.save(window.DocPDF.nombreArchivo(d)); }); }
   };
 })();

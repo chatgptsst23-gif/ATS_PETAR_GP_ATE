@@ -1,4 +1,4 @@
-/* v06 — Ejecutar: node tests/regresion.cjs. No realiza solicitudes de red real. */
+/* v07 — Ejecutar: node tests/regresion.cjs. No realiza solicitudes de red real. */
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
@@ -29,10 +29,10 @@ const user={nombre:'Usuario Prueba',cargo:'Supervisor'};
 const respuesta=(status,obj)=>({status,ok:status>=200&&status<300,text:async()=>typeof obj==='string'?obj:JSON.stringify(obj)});
 const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CLAVE_FICTICIA_V06';};
 (async()=>{
-  assert.equal(C.flujoUrl,''); assert.equal(C.claveArea,''); assert.equal(C.modoPrueba,false); assert.equal(C.version,'v06 (piloto)');
+  assert.equal(C.flujoUrl,''); assert.equal(C.claveArea,''); assert.equal(C.modoPrueba,false); assert.equal(C.version,'v07 (piloto integrado)');
 
   const p=M.nuevoPETAR('PETAR-PRUEBA',user);
-  assert.equal(p.prueba,false);
+  assert.equal(p.prueba,false); p.tipos.caliente=true;
   Object.assign(p.emergencia,{encargadoSede:'A',supervisorPrevencionista:'B',rutasLibres:'si',rutasIndicadas:'si',telefono:'123',contacto:'C'});
   assert.equal(M.validarPaso(p,'emergencia').length,C.petar.emergencias.length+C.petar.equiposEmergencia.length);
   C.petar.emergencias.forEach(k=>p.emergencia.emergencias[k]='na');
@@ -71,7 +71,7 @@ const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CL
   fetchImpl=async(url,init)=>{ultimoInit=init;ultimoPayload=JSON.parse(init.body);return respuesta(200,{ok:true,numero:ultimoPayload.numero,archivo:'ats-confirmado.pdf',idEnvio:ultimoPayload.idEnvio})};
   let r=await w.Envio.enviar(op,'atsRegistrado');
   assert.equal(r.resultado,'confirmado');assert.equal(r.archivo,'ats-confirmado.pdf');
-  assert.equal(ultimoPayload.version,'v06');assert.equal(ultimoPayload.clave,C.claveArea);assert(ultimoPayload.idEnvio);
+  assert.equal(ultimoPayload.version,'v07');assert.equal(ultimoPayload.clave,C.claveArea);assert(ultimoPayload.idEnvio);
   assert.equal(ultimoInit.mode,'cors');assert.equal(ultimoInit.headers['Content-Type'],'text/plain;charset=UTF-8');
   assert(!JSON.stringify(op.bitacora).includes(C.claveArea));assert(!JSON.stringify(op.envios).includes(C.claveArea));
 
@@ -117,5 +117,81 @@ const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CL
   assert.equal(docConexion.prueba,false);assert.equal(momentoConexion,'prueba_conexion');
   w.Envio.enviar=envioReal;
 
-  console.log('OK: v06 y regresiones v05.');
+
+  /* ------------------------------ v07 integrada ------------------------------ */
+  const tipos=Object.fromEntries(C.petar.tipos.map(t=>[t.id,t.activo]));
+  assert.equal(tipos.altura,true);assert.equal(tipos.peligrosos,true);assert.equal(tipos.caliente,true);assert.equal(tipos.confinado,false);
+  assert.equal(C.petar.fotos.maxTotal,8);assert.equal(C.petar.fotos.anchoMaximoPx,1024);
+
+  const sinAts=M.nuevoPETAR('PETAR-V07-SIN-ATS',user);
+  assert.equal(!!sinAts.tipos.caliente,false);assert.equal(!!sinAts.tipos.altura,false);
+  const atsRef=M.nuevoATS('ATS-REF',user);atsRef.permisos.caliente=false;atsRef.permisos.altura=true;
+  const desdeAts=M.nuevoPETAR('PETAR-V07-DESDE-ATS',user,atsRef);
+  assert.equal(desdeAts.tipos.altura,true);assert.equal(desdeAts.tipos.caliente,false);
+
+  const JPG='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAGAAgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDkKKKK8U/TD//Z';
+  let fotoN=0; const foto=(t)=>({id:'f_'+(++fotoN),fechaHora:new Date().toISOString(),texto:t,ancho:8,alto:6});
+
+  const h=M.nuevoPETAR('PETAR-V07-ALTURA',user);h.tipos.altura=true;M.normalizar(h);
+  assert(h.altura&&h.escaleras&&h.peligrosos&&h.quimicos&&h.evidencias&&h.vigias.altura);
+  assert.equal(M.pasos(h).map(x=>x.id).join(','),'descripcion,epp,requisitos,altura,evidencias,emergencia');
+  assert(M.validarPaso(h,'altura').some(x=>x.includes('sin responder')));
+  C.petar.altura.forEach(r=>h.altura[r.id]='si');h.escaleras.usa='no';h.vigias.altura.nombre='Vigia Altura';
+  assert.equal(M.validarPaso(h,'altura').length,0);
+  assert.equal(M.validarPaso(h,'evidencias').length,C.petar.evidenciasPorTipo.altura.length);
+  M.evidenciasRequeridas(h).forEach(x=>{h.evidencias[x.ruta]=[foto(x.texto)]});
+  assert.equal(M.validarPaso(h,'evidencias').length,0);
+  assert(!JSON.stringify(h).includes('data:image'));
+  h.escaleras.usa='si';assert(M.validarPaso(h,'altura').some(x=>x.startsWith('Escalera sin responder')));
+  C.petar.escaleras.forEach(r=>h.escaleras[r.id]='si');assert.equal(M.validarPaso(h,'altura').length,0);
+  h.escaleras.e_estado='no';assert(M.bloqueos(h).some(x=>x.includes('Escalera en buenas condiciones')));
+  h.escaleras.e_estado='si';h.escaleras.e_angulo='no';assert(M.observados(h).some(x=>x.includes('1/4')));assert(!M.bloqueos(h).some(x=>x.includes('1/4')));
+  h.altura.h_aptitud='no';assert(M.bloqueos(h).some(x=>x.includes('aptitud médica')));h.altura.h_aptitud='si';
+
+  const q=M.nuevoPETAR('PETAR-V07-QUIM',user);q.tipos.caliente=true;q.tipos.peligrosos=true;M.normalizar(q);
+  assert.equal(M.pasos(q).map(x=>x.id).join(','),'descripcion,epp,requisitos,caliente,peligrosos,evidencias,emergencia');
+  q.quimicos.inflamable='no';assert(!M.bloqueos(q).some(x=>x.includes('LEL')));
+  q.quimicos.inflamable='si';assert(M.calienteConInflamables(q));assert(M.bloqueos(q).some(x=>x.includes('LEL')));
+  q.quimicos.lel='5';assert(M.bloqueos(q).some(x=>x.includes('LEL')));q.quimicos.lel='0';assert(!M.bloqueos(q).some(x=>x.includes('LEL')));
+  q.tipos.caliente=false;q.quimicos.lel='';assert(!M.bloqueos(q).some(x=>x.includes('LEL')));q.tipos.caliente=true;
+  assert(M.validarPaso(q,'peligrosos').some(x=>x.includes('productos')));
+  q.quimicos.productos='Thinner';C.petar.peligrosos.forEach(r=>q.peligrosos[r.id]='si');q.quimicos.inflamable='no';
+  assert.equal(M.validarPaso(q,'peligrosos').length,0);
+  assert.equal(M.fotosFaltantes(q).length,C.petar.evidenciasPorTipo.caliente.length+C.petar.evidenciasPorTipo.peligrosos.length);
+  q.peligrosos.q_atmosfera='na';q.peligrosos.q_nfpa='no';assert(M.bloqueos(q).some(x=>x.includes('NFPA')));
+
+  const f=M.nuevoPETAR('PETAR-V07-FIRMAS',user);f.tipos.altura=true;M.normalizar(f);
+  f.autorizacion.supervisor.nombre='Juan  Perez';f.autorizacion.ejecutante.nombre='juan perez';
+  assert(M.validarFirmas(f).some(x=>x.includes('misma persona')));assert(M.validarFirmas(f).some(x=>x.includes('vigía de trabajo en altura')));
+  f.autorizacion.ejecutante.nombre='Luis Soto';assert(!M.validarFirmas(f).some(x=>x.includes('misma persona')));
+
+  const combinado=M.nuevoPETAR('PETAR-V07-VIGIAS',user);combinado.tipos.caliente=true;combinado.tipos.altura=true;M.normalizar(combinado);
+  combinado.vigias.caliente.nombre='Vigia Caliente';combinado.vigias.altura.nombre='Vigia Altura';
+  assert.notEqual(combinado.vigias.caliente,combinado.vigias.altura);
+
+  const viejo=JSON.parse(JSON.stringify(M.nuevoPETAR('PETAR-V06-ANTIGUO',user)));
+  delete viejo.altura;delete viejo.escaleras;delete viejo.peligrosos;delete viejo.quimicos;delete viejo.evidencias;delete viejo.vigias;
+  viejo.tipos={caliente:true};viejo.vigia={nombre:'Vigia legado',dni:'',firma:'x',fechaHora:'2026-01-01T00:00:00Z'};
+  assert.doesNotThrow(()=>{M.pasos(viejo);M.bloqueos(viejo);M.validarTodo(viejo);w.DocPDF.generar(viejo);});
+  assert.equal(viejo.vigias.caliente.nombre,'Vigia legado');
+
+  /* Desactivar un tipo desvincula sus evidencias del documento. */
+  const lim=M.nuevoPETAR('PETAR-LIMPIEZA',user);lim.tipos.altura=true;M.normalizar(lim);lim.evidencias['altura.acceso']=[foto('Acceso')];
+  const idsLim=M.limpiarEvidenciasTipo(lim,'altura');assert.equal(idsLim.length,1);assert.equal(M.totalFotos(lim),0);
+
+  /* El PDF acepta un mapa de imágenes temporal: la foto no vive dentro del PETAR. */
+  const hp=M.nuevoPETAR('PETAR-PDF-FOTOS',user);hp.tipos.altura=true;M.normalizar(hp);C.petar.altura.forEach(r=>hp.altura[r.id]='si');hp.escaleras.usa='no';hp.vigias.altura.nombre='Vigia';
+  const mapa={};M.evidenciasRequeridas(hp).forEach(x=>{const fr=foto(x.texto);hp.evidencias[x.ruta]=[fr];mapa[fr.id]=new Uint8Array(Buffer.from(JPG.split(',')[1],'base64'));});
+  const rawF=w.DocPDF.generar(hp,mapa).output();
+  const txtF=Array.from(rawF.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)).map(m=>{try{return require('node:zlib').inflateSync(Buffer.from(m[1],'binary')).toString('latin1')}catch(e){return m[1]}}).join('\n');
+  assert(txtF.includes('REGISTRO FOTOGR'));assert(txtF.includes('TRABAJO EN ALTURA'));assert((rawF.match(/\/Subtype \/Image/g)||[]).length>=1);
+
+  const fuenteApp=fs.readFileSync(path.join(root,'app.js'),'utf8');
+  assert(fuenteApp.includes('Acceso Área SST'));assert(fuenteApp.includes('claveAjustesHash_v07'));assert(fuenteApp.includes('canvasBlob'));
+  assert(!fuenteApp.includes('toDataURL('));assert(!fuenteApp.includes('readAsDataURL'));
+  const fuenteDatos=fs.readFileSync(path.join(root,'datos.js'),'utf8');
+  assert(fuenteDatos.includes("FOTOS = 'fotos'"));assert(fuenteDatos.includes('fotosSoportadas'));
+  assert(fs.readFileSync(path.join(root,'modelo.js'),'utf8').includes('lideradoPor: usuario.nombre'));
+
+  console.log('OK: v07 integrada (Claude + Usuario/SST + fotos optimizadas) y regresiones v06/v05.');
 })().catch(e=>{console.error(e);process.exitCode=1});

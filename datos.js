@@ -1,5 +1,5 @@
 /* =====================================================================
-   DATOS — window.Store (almacenamiento local) y window.Envio (flujo) · v06
+   DATOS — window.Store (almacenamiento local) y window.Envio (flujo) · v07
    ---------------------------------------------------------------------
    Store: copia de trabajo en el celular (IndexedDB; respaldo en
    localStorage). El registro oficial es el que llega a SharePoint.
@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  var DB = 'pana_sst_v03', VER = 1, ST = 'docs', META = 'meta', LS = 'pana_sst_v03_respaldo';
+  var DB = 'pana_sst_v03', VER = 2, ST = 'docs', META = 'meta', FOTOS = 'fotos', LS = 'pana_sst_v03_respaldo';
 
   /* ---------------- IndexedDB ---------------- */
   var idb = (function () {
@@ -22,6 +22,7 @@
           var db = e.target.result;
           if (!db.objectStoreNames.contains(ST)) db.createObjectStore(ST, { keyPath: 'id' });
           if (!db.objectStoreNames.contains(META)) db.createObjectStore(META, { keyPath: 'clave' });
+          if (!db.objectStoreNames.contains(FOTOS)) db.createObjectStore(FOTOS, { keyPath: 'id' });
         };
         r.onsuccess = function (e) { ok(e.target.result); };
         r.onerror = function () { mal(r.error); };
@@ -45,6 +46,9 @@
       del: function (id) { return tx(ST, 'readwrite', function (s) { return s.delete(id); }); },
       meta: function (k) { return tx(META, 'readonly', function (s) { return s.get(k); }).then(function (r) { return r ? r.valor : undefined; }); },
       setMeta: function (k, v) { return tx(META, 'readwrite', function (s) { return s.put({ clave: k, valor: v }); }); },
+      putFoto: function (f) { return tx(FOTOS, 'readwrite', function (s) { return s.put(f); }); },
+      getFoto: function (id) { return tx(FOTOS, 'readonly', function (s) { return s.get(id); }); },
+      delFoto: function (id) { return tx(FOTOS, 'readwrite', function (s) { return s.delete(id); }); },
       siguiente: function (k) {
         return abrir().then(function (db) { return new Promise(function (ok, mal) {
           var t = db.transaction(META, 'readwrite'), st = t.objectStore(META), n;
@@ -69,6 +73,9 @@
       del: function (id) { var d = leer(); d.docs = d.docs.filter(function (y) { return y.id !== id; }); esc(d); return Promise.resolve(); },
       meta: function (k) { return Promise.resolve(leer().meta[k]); },
       setMeta: function (k, v) { var d = leer(); d.meta[k] = v; esc(d); return Promise.resolve(); },
+      putFoto: function () { return Promise.reject(new Error('Las fotos requieren IndexedDB.')); },
+      getFoto: function () { return Promise.resolve(null); },
+      delFoto: function () { return Promise.resolve(); },
       siguiente: function (k) {
         function reservar() { var d = leer(); var n = (d.meta[k] || 0) + 1; d.meta[k] = n; esc(d); return n; }
         if (navigator.locks) return navigator.locks.request(DB + '_numeracion', reservar);
@@ -104,6 +111,11 @@
     pref: function (k, v) {
       return listo.then(function () { return v === undefined ? motor.meta('pref_' + k) : motor.setMeta('pref_' + k, v); });
     },
+    fotosSoportadas: function () { return nombreMotor === 'IndexedDB'; },
+    guardarFoto: function (f) { return listo.then(function () { if (nombreMotor !== 'IndexedDB') throw new Error('Las fotos requieren IndexedDB.'); return motor.putFoto(f); }).then(function () { return f; }); },
+    obtenerFoto: function (id) { return listo.then(function () { return motor.getFoto(id); }); },
+    eliminarFoto: function (id) { return listo.then(function () { return motor.delFoto(id); }); },
+    eliminarFotos: function (ids) { return Promise.all((ids || []).map(function (id) { return Store.eliminarFoto(id); })); },
     /* Contador atómico en IndexedDB. Año + identificador aleatorio evitan
        reutilizar códigos al reiniciar el contador o usar varias pestañas. */
     siguienteNumero: function (tipo) {
@@ -158,12 +170,7 @@
           'Envío pendiente · sin conexión. Reintenta manualmente desde la ficha.'));
       }
 
-      var pdf;
-      try { pdf = window.DocPDF.base64(doc); }
-      catch (e) {
-        return Promise.resolve(agregarRegistro(doc, registro, 'error', 'No se pudo generar el PDF.'));
-      }
-
+      return Promise.resolve().then(function () { return window.DocPDF.base64(doc); }).then(function (pdf) {
       var idEnvio = nuevoIdEnvio();
       registro.idEnvio = idEnvio;
       var payload = {
@@ -180,7 +187,7 @@
         pdfBase64: pdf,
         registradoPor: doc.usuario ? doc.usuario.nombre : '',
         generadoEn: new Date().toISOString(),
-        version: 'v06',
+        version: 'v07',
         clave: C.claveArea,
         idEnvio: idEnvio
       };
@@ -218,6 +225,7 @@
         clearTimeout(reloj);
         return agregarRegistro(doc, registro, 'no_confirmado', 'Envío intentado · recepción sin confirmar');
       });
+      }).catch(function () { return agregarRegistro(doc, registro, 'error', 'No se pudo generar el PDF.'); });
     },
 
     ultimo: function (doc) {
