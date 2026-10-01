@@ -119,8 +119,9 @@
     /* Contador atómico en IndexedDB. Año + identificador aleatorio evitan
        reutilizar códigos al reiniciar el contador o usar varias pestañas. */
     siguienteNumero: function (tipo) {
-      var sede = window.SST_CONFIG.sede.toUpperCase().slice(0, 3), anio = new Date().getFullYear();
-      return listo.then(function () { return motor.siguiente('corr_' + tipo + '_' + anio); }).then(function (n) {
+      var sede = window.SST_CONFIG.sedeCodigo, anio = new Date().getFullYear();
+      if (!sede) return Promise.reject(new Error('Selecciona la sede del dispositivo antes de crear documentos.'));
+      return listo.then(function () { return motor.siguiente('corr_' + tipo + '_' + sede + '_' + anio); }).then(function (n) {
         var bytes = new Uint8Array(4); window.crypto.getRandomValues(bytes);
         var sufijo = Array.from(bytes).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('').toUpperCase();
         return tipo + '-' + sede + '-' + anio + '-' + String(n).padStart(4, '0') + '-' + sufijo;
@@ -179,7 +180,7 @@
         numero: doc.numero,
         estado: doc.estado,
         momento: momento,
-        sede: C.sede,
+        sede: window.Modelo.sede(doc),
         fecha: doc.tipo === 'ATS' ? doc.generales.fecha : doc.descripcion.fecha,
         asunto: window.Modelo.asuntoCorreo(doc, momento),
         cuerpo: window.Modelo.correoHTML(doc, momento),
