@@ -1,6 +1,6 @@
 /* =====================================================================
    CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v07.1
-   ATS y PETAR — sede Ate, área B&P
+   ATS y PETAR — configuración multisede, área B&P
    ---------------------------------------------------------------------
    Todo el contenido de los formatos vive aquí. Cambiar una pregunta,
    su exigencia o un catálogo no requiere tocar la lógica.
@@ -13,9 +13,20 @@ window.SST_CONFIG = {
 
   empresa: 'Grupo Pana',
   sistema: 'Gestión Digital SST',
-  sede: 'Ate',
+  sedes: [
+    { codigo: 'MON', nombre: 'Montero' },
+    { codigo: 'SQO', nombre: 'Surquillo' },
+    { codigo: 'SCO', nombre: 'Surco' },
+    { codigo: 'SMG', nombre: 'San Miguel' },
+    { codigo: 'CAL', nombre: 'Callao' },
+    { codigo: 'ATE', nombre: 'Ate' },
+    { codigo: 'MOQ', nombre: 'Moquegua' },
+    { codigo: 'TAC', nombre: 'Tacna' }
+  ],
+  sede: '',
+  sedeCodigo: '',
   areaPorDefecto: 'Planchado y pintura (B&P)',
-  version: 'v07.1 (piloto operativo)',
+  version: 'v07.2 (multisede)',
 
   /* URL del flujo de Power Automate ("Cuando se recibe una solicitud HTTP").
      Vacía = la app funciona igual, pero no envía correo ni guarda en SharePoint. */
