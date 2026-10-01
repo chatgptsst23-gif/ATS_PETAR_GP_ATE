@@ -103,8 +103,18 @@ const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CL
   ctx.document={addEventListener:()=>{}};w.scrollTo=()=>{};w.scrollY=0;
   let app=fs.readFileSync(path.join(root,'app.js'),'utf8');
   app=app.replace('function render() {','function render() { return;');
-  app=app.replace('window.App = { estado: st };','window.App = { estado: st, ir: ir, finalizar: finalizar, probarEnvio: probarEnvio };');
+  app=app.replace('window.App = { estado: st };','window.App = { estado: st, ir: ir, finalizar: finalizar, probarEnvio: probarEnvio, atsRegistradoParaPetar: atsRegistradoParaPetar };');
   vm.runInContext(app,ctx);
+  const atsValido=M.nuevoATS('ATS-VINCULO-VALIDO',user);atsValido.estado='REGISTRADO';await w.Store.guardar(atsValido);
+  const petarValido=M.nuevoPETAR('PETAR-VINCULO-VALIDO',user,atsValido);
+  assert.equal(await w.App.atsRegistradoParaPetar(petarValido),true);
+  const petarSinAts=M.nuevoPETAR('PETAR-SIN-ATS',user);
+  assert.equal(await w.App.atsRegistradoParaPetar(petarSinAts),false);
+  const atsBorrador=M.nuevoATS('ATS-BORRADOR-NO-VALIDO',user);await w.Store.guardar(atsBorrador);
+  const petarConAtsBorrador=M.nuevoPETAR('PETAR-ATS-BORRADOR',user,atsBorrador);
+  assert.equal(await w.App.atsRegistradoParaPetar(petarConAtsBorrador),false);
+  assert(M.validarPaso(petarSinAts,'descripcion').some(x=>x.includes('vinculado')));
+
   const a=M.nuevoATS('ATS-FIRMADO',user);a.supervisorFirma.firma='firma';a.supervisorFirma.fechaHora='fecha';
   w.App.estado.doc=a;w.App.estado.pantalla='revision';
   confirm=false;w.App.ir('form',0);await new Promise(r=>realSetTimeout(r,10));assert.equal(w.App.estado.pantalla,'revision');assert.equal(a.supervisorFirma.firma,'firma');
