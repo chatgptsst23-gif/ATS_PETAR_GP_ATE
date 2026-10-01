@@ -1,7 +1,7 @@
 {
   "name": "Grupo Pana — ATS y PETAR",
   "short_name": "SST Pana",
-  "description": "ATS y PETAR de trabajo en caliente — Gestión Digital SST, sede Ate.",
+  "description": "ATS y PETAR de trabajos de alto riesgo — Gestión Digital SST multisede.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
