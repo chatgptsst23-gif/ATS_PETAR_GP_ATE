@@ -37,7 +37,33 @@
   }
   function guardarYa() { clearTimeout(tGuardar); return st.doc ? window.Store.guardar(st.doc) : Promise.resolve(); }
   function quieto() { var y = window.scrollY; render(); window.scrollTo(0, y); }
-  function ir(p, paso) {
+
+  /* Un PETAR solo puede editarse, revisarse o autorizarse si conserva
+     un vínculo real con un ATS existente y ya REGISTRADO en este dispositivo. */
+  function atsRegistradoParaPetar(d) {
+    if (!d || d.tipo !== 'PETAR') return Promise.resolve(true);
+    var s = d.descripcion || {};
+    if (!s.atsId || !s.atsRef) return Promise.resolve(false);
+    return window.Store.obtener(s.atsId).then(function (ats) {
+      return !!(ats && ats.tipo === 'ATS' && ats.estado === 'REGISTRADO' && ats.numero === s.atsRef);
+    }).catch(function () { return false; });
+  }
+  function avisoATSObligatorio() {
+    UI.aviso('Para continuar con el PETAR primero debes registrar un ATS y crear el PETAR desde ese ATS.', 'mal');
+  }
+
+  function ir(p, paso, vinculoATSComprobado) {
+    if (!vinculoATSComprobado && st.doc && st.doc.tipo === 'PETAR' && ['form', 'revision', 'firmas'].indexOf(p) >= 0) {
+      atsRegistradoParaPetar(st.doc).then(function (ok) {
+        if (!ok) {
+          avisoATSObligatorio();
+          if (st.pantalla !== 'detalle') ir('detalle');
+          return;
+        }
+        ir(p, paso, true);
+      });
+      return;
+    }
     if (p === 'form' && st.doc) {
       if (!M.editable(st.doc)) { UI.aviso('Solo se editan borradores.', 'mal'); return; }
       if (M.tieneFirmas(st.doc)) {
@@ -598,9 +624,14 @@
       '<button class="btn btn--peligro btn--ancho" data-accion="cancelar">Cancelar por alarma o emergencia</button>';
     if (d.tipo === 'PETAR' && e === 'PROGRAMADO') acc += '<button class="btn btn--peligro btn--ancho" data-accion="cancelar">Cancelar permiso programado</button>';
     if (d.tipo === 'PETAR' && e === 'VENCIDO') acc += '<button class="btn btn--secundario btn--ancho" data-accion="ir-cierre">Cerrar permiso</button>';
-    if (d.estado === 'BORRADOR') acc +=
-      '<button class="btn btn--secundario btn--ancho" data-accion="editar" data-paso="0">Continuar edición</button>' +
-      '<button class="btn btn--peligro btn--ancho" data-accion="eliminar">Eliminar borrador</button>';
+    if (d.estado === 'BORRADOR') {
+      var sinATS = d.tipo === 'PETAR' && (!d.descripcion || !d.descripcion.atsId || !d.descripcion.atsRef);
+      if (sinATS) acc +=
+        '<div class="alerta alerta--mal"><strong>PETAR bloqueado.</strong><div>Este borrador no tiene un ATS registrado vinculado. Primero registra el ATS y luego crea un PETAR desde ese ATS.</div></div>' +
+        '<button class="btn btn--principal btn--ancho" data-accion="nuevo-ats">Crear ATS</button>';
+      else acc += '<button class="btn btn--secundario btn--ancho" data-accion="editar" data-paso="0">Continuar edición</button>';
+      acc += '<button class="btn btn--peligro btn--ancho" data-accion="eliminar">Eliminar borrador</button>';
+    }
 
     app.innerHTML = resumen(d, false) +
       (u ? '<section class="bloque"><div class="alerta alerta--' + (u.resultado === 'confirmado' ? 'ok' : 'aviso') + '"><strong>' +
@@ -760,7 +791,10 @@
 
   /* ============================ Acciones ============================ */
   function nuevo(tipo, ats) {
-    if (tipo === 'PETAR' && !ats) { UI.aviso('El PETAR requiere un ATS registrado.', 'mal'); return Promise.resolve(); }
+    if (tipo === 'PETAR' && (!ats || ats.tipo !== 'ATS' || ats.estado !== 'REGISTRADO')) {
+      avisoATSObligatorio();
+      return Promise.resolve();
+    }
     return window.Store.siguienteNumero(tipo).then(function (n) {
       st.doc = tipo === 'ATS' ? M.nuevoATS(n, st.usuario) : M.nuevoPETAR(n, st.usuario, ats);
       if (tipo === 'PETAR') st.doc.evidenciasNoDisponibles = !window.Store.fotosSoportadas();
@@ -946,8 +980,19 @@
     });
   }
 
-  function finalizar(estado, momento, tituloConf, textoConf) {
-    var d = st.doc, e = M.validarTodo(d).map(function (x) { return x.mensaje; }).concat(M.validarFirmas(d), M.bloqueos(d));
+  function finalizar(estado, momento, tituloConf, textoConf, vinculoATSComprobado) {
+    var d = st.doc;
+    if (d && d.tipo === 'PETAR' && !vinculoATSComprobado) {
+      return atsRegistradoParaPetar(d).then(function (ok) {
+        if (!ok) {
+          avisoATSObligatorio();
+          if (st.pantalla !== 'detalle') ir('detalle');
+          return;
+        }
+        return finalizar(estado, momento, tituloConf, textoConf, true);
+      });
+    }
+    var e = M.validarTodo(d).map(function (x) { return x.mensaje; }).concat(M.validarFirmas(d), M.bloqueos(d));
     if (!M.editable(d)) { UI.aviso('El documento ya fue finalizado.', 'mal'); return; }
     if (e.length) { st.errores = e; render(); window.scrollTo(0, 0); return; }
     UI.confirmar({ titulo: C.modoPrueba ? 'Registrar simulación' : tituloConf, texto: C.modoPrueba ? 'Este documento es de prueba, no autoriza trabajos y no se enviará a SST.' : textoConf, aceptar: estado === 'AUTORIZADO' ? 'Autorizar' : 'Registrar' }).then(function (ok) {
