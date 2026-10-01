@@ -1,5 +1,5 @@
 /* =====================================================================
-   APLICACIÓN — Grupo Pana · Gestión Digital SST · v07
+   APLICACIÓN — Grupo Pana · Gestión Digital SST · v07.2
    ATS y PETAR de trabajos de alto riesgo. Pantallas, navegación y acciones.
    ===================================================================== */
 (function () {
@@ -9,7 +9,7 @@
   var esc = UI.esc, $ = UI.$;
 
   var st = {
-    usuario: null, pantalla: 'usuario', doc: null, paso: 0,
+    usuario: null, pantalla: 'sede', doc: null, paso: 0,
     errores: [], lista: [], filtroTipo: '', pads: {}, volverA: 'inicio',
     sstAutorizado: false, claveAjustesHash: '', fotosDisponibles: true
   };
@@ -38,14 +38,37 @@
   function guardarYa() { clearTimeout(tGuardar); return st.doc ? window.Store.guardar(st.doc) : Promise.resolve(); }
   function quieto() { var y = window.scrollY; render(); window.scrollTo(0, y); }
 
+  function buscarSede(codigo) {
+    return (C.sedes || []).find(function (s) { return s.codigo === codigo; }) || null;
+  }
+  function aplicarSede(codigo) {
+    var s = buscarSede(codigo);
+    if (!s) return false;
+    C.sede = s.nombre;
+    C.sedeCodigo = s.codigo;
+    return true;
+  }
+  function esSedeActual(d) {
+    M.normalizar(d);
+    return M.sede(d) === C.sede;
+  }
+  function opcionesSede(actual) {
+    return '<option value="">Selecciona una sede</option>' + (C.sedes || []).map(function (s) {
+      return '<option value="' + esc(s.codigo) + '"' + (s.codigo === actual ? ' selected' : '') + '>' + esc(s.nombre) + '</option>';
+    }).join('');
+  }
+
   /* Un PETAR solo puede editarse, revisarse o autorizarse si conserva
      un vínculo real con un ATS existente y ya REGISTRADO en este dispositivo. */
   function atsRegistradoParaPetar(d) {
     if (!d || d.tipo !== 'PETAR') return Promise.resolve(true);
     var s = d.descripcion || {};
     if (!s.atsId || !s.atsRef) return Promise.resolve(false);
+    var sedePetar = M.sede(d);
     return window.Store.obtener(s.atsId).then(function (ats) {
-      return !!(ats && ats.tipo === 'ATS' && ats.estado === 'REGISTRADO' && ats.numero === s.atsRef);
+      if (ats) M.normalizar(ats);
+      return !!(ats && ats.tipo === 'ATS' && ats.estado === 'REGISTRADO' && ats.numero === s.atsRef &&
+        M.sede(ats) === sedePetar && sedePetar === C.sede);
     }).catch(function () { return false; });
   }
   function avisoATSObligatorio() {
@@ -213,7 +236,7 @@
   /* ============================ Render ============================== */
   function render() {
     var v = {
-      usuario: vUsuario, accesoSST: vAccesoSST, inicio: vInicio, historial: vHistorial, elegirATS: vElegirATS,
+      sede: vSede, usuario: vUsuario, accesoSST: vAccesoSST, inicio: vInicio, historial: vHistorial, elegirATS: vElegirATS,
       form: vForm, revision: vRevision, firmas: vFirmas, detalle: vDetalle,
       verificacion: vVerificacion, cierre: vCierre, ajustes: vAjustes
     };
@@ -227,10 +250,11 @@
   function cabecera() {
     var d = st.doc, pasos = d ? M.pasos(d) : [];
     var m = {
+      sede: ['Configurar sede', 'Este celular quedará asociado a una sede'],
       usuario: ['Bienvenido', '¿Quién usa este celular?'],
       accesoSST: ['Área SST', 'Acceso restringido a Ajustes'],
       inicio: ['ATS y PETAR', 'B&P · Sede ' + C.sede],
-      historial: ['Historial', 'ATS y PETAR registrados'],
+      historial: ['Historial', 'Sede ' + C.sede],
       elegirATS: ['Nuevo PETAR', 'ATS de referencia'],
       form: [d ? d.numero : '', pasos[st.paso] ? pasos[st.paso].titulo : ''],
       revision: ['Revisión', d ? d.numero : ''],
@@ -241,13 +265,23 @@
       ajustes: ['Ajustes', 'Conexión con SST']
     }[st.pantalla] || ['', ''];
     titulo.textContent = m[0]; sub.textContent = m[1];
-    atras.hidden = (st.pantalla === 'inicio' || st.pantalla === 'usuario');
+    atras.hidden = (st.pantalla === 'sede' || st.pantalla === 'inicio' || st.pantalla === 'usuario');
     $('#modulo').textContent = d && ['inicio', 'historial', 'ajustes', 'usuario'].indexOf(st.pantalla) < 0 ? d.tipo : 'ATS · PETAR';
   }
 
   function marcaHTML() {
     return '<div class="marca"><img src="logo_isotipo.png" alt=""><div class="marca__texto"><span>GRUPO</span><span class="rojo">PANA</span></div>' +
-      '<div class="marca__sub">' + esc(C.sistema) + '<br>Sede ' + esc(C.sede) + '</div></div>';
+      '<div class="marca__sub">' + esc(C.sistema) + '<br>' + (C.sede ? 'Sede ' + esc(C.sede) : 'Configuración multisede') + '</div></div>';
+  }
+
+  /* =========================== Pantalla: sede ======================= */
+  function vSede() {
+    app.innerHTML = '<section class="bloque">' + marcaHTML() +
+      '<h2 class="h-seccion">Selecciona la sede de este dispositivo</h2>' +
+      '<p class="intro">Los ATS y PETAR nuevos quedarán asociados a esta sede. Después, el cambio de sede estará disponible únicamente desde Ajustes del Área SST.</p>' +
+      campo('Sede *', '<select id="sedeSeleccion">' + opcionesSede(C.sedeCodigo) + '</select>') +
+      '<button class="btn btn--principal btn--ancho" data-accion="guardar-sede">Guardar sede y continuar</button>' +
+      '<p class="nota">Sedes habilitadas: Montero, Surquillo, Surco, San Miguel, Callao, Ate, Moquegua y Tacna.</p></section>';
   }
 
   /* ========================= Pantalla: usuario ====================== */
@@ -282,6 +316,7 @@
   function vInicio() {
     app.innerHTML = '<section class="bloque"><p class="intro">Cargando…</p></section>';
     window.Store.todos().then(function (l) {
+      l = l.filter(esSedeActual);
       st.lista = l;
       var petarVig = l.filter(function (d) { return d.tipo === 'PETAR' && M.estadoVisible(d) === 'AUTORIZADO'; });
       var vencidos = l.filter(function (d) { return M.estadoVisible(d) === 'VENCIDO'; });
@@ -327,6 +362,7 @@
   /* ========================= Pantalla: historial ==================== */
   function vHistorial() {
     window.Store.todos().then(function (l) {
+      l = l.filter(esSedeActual);
       st.lista = l;
       var f = l.filter(function (d) { return !st.filtroTipo || d.tipo === st.filtroTipo; });
       app.innerHTML = '<section class="bloque">' +
@@ -340,7 +376,7 @@
 
   /* ======================= Pantalla: elegir ATS ===================== */
   function vElegirATS() {
-    var ats = st.lista.filter(function (d) { return d.tipo === 'ATS' && d.estado === 'REGISTRADO'; });
+    var ats = st.lista.filter(esSedeActual).filter(function (d) { return d.tipo === 'ATS' && d.estado === 'REGISTRADO'; });
     app.innerHTML = '<section class="bloque">' +
       '<p class="intro">El PETAR requiere un ATS registrado. Selecciona el ATS que corresponde al trabajo; se copiarán la tarea, el lugar y el personal.</p>' +
       (ats.length ? ats.slice(0, 10).map(function (d) {
@@ -375,6 +411,7 @@
       campo('Tarea *', txt('generales.tarea', g.tarea, 'Ej. Reparación de soporte metálico con soldadura')) +
       campo('Ubicación *', txt('generales.ubicacion', g.ubicacion, 'Ej. Bahía 3 de planchado')) +
       campo('Área de Grupo Pana *', txt('generales.areaContratista', g.areaContratista, 'Ej. Planchado y pintura')) +
+      campo('Sede', '<input type="text" value="' + esc(M.sede(d)) + '" disabled>') +
       '<div class="par">' + campo('Fecha *', txt('generales.fecha', g.fecha, '', 'date')) + campo('Hora *', txt('generales.hora', g.hora, '', 'time')) + '</div>' +
       campo('ATS liderado por *', txt('generales.lideradoPor', g.lideradoPor, 'Nombres y apellidos')) +
       campo('Supervisor de trabajo *', txt('generales.supervisor', g.supervisor, 'Nombres y apellidos')) +
@@ -663,7 +700,7 @@
 
     if (d.tipo === 'ATS') {
       var g = d.generales;
-      h += tit('Datos de la tarea', 0) + '<div class="datos">' + f('Tarea', g.tarea) + f('Ubicación', g.ubicacion) + f('Área de Grupo Pana', g.areaContratista) +
+      h += tit('Datos de la tarea', 0) + '<div class="datos">' + f('Sede', M.sede(d)) + f('Tarea', g.tarea) + f('Ubicación', g.ubicacion) + f('Área de Grupo Pana', g.areaContratista) +
         f('Fecha y hora', fecha(g.fecha) + ' ' + g.hora) + f('Liderado por', g.lideradoPor) + f('Supervisor', g.supervisor) +
         f('Permisos', C.ats.permisos.filter(function (p) { return d.permisos[p.id]; }).map(function (p) { return p.id === 'otro' ? 'Otro: ' + d.permisoOtro : p.label; }).join(', ')) + '</div>' +
         tit('Pasos de la tarea', 1) + d.pasos.map(function (p, i) {
@@ -678,7 +715,7 @@
 
     var s = d.descripcion, m = d.emergencia;
     h += tit('I. Descripción del trabajo', P.indexOf('descripcion')) + '<div class="datos">' +
-      f('Fecha y horario', fecha(s.fecha) + ' · ' + s.horaInicio + ' a ' + (s.horaFin || '—')) + f('ATS de referencia', s.atsRef) +
+      f('Sede', M.sede(d)) + f('Fecha y horario', fecha(s.fecha) + ' · ' + s.horaInicio + ' a ' + (s.horaFin || '—')) + f('ATS de referencia', s.atsRef) +
       f('Área de Grupo Pana', s.ejecutaNombre) + f('Tarea', s.tarea) + f('Lugar', s.lugar) + f('Tipo', M.tiposTexto(d)) +
       f('Capacitación previa', sn(s.capacitacion)) + '</div>' +
       tit('III. EPP', P.indexOf('epp')) + '<p class="parrafo">' + esc(C.petar.epp.reduce(function (a, g) { return a.concat(g.items.filter(function (it) { return d.epp[it.id]; }).map(function (it) { return it.label; })); }, []).concat(d.eppOtros ? [d.eppOtros] : []).join(', ') || '—') + '</p>' +
@@ -734,6 +771,10 @@
   function vAjustes() {
     if (!st.sstAutorizado) { st.pantalla = 'accesoSST'; return vAccesoSST(); }
     app.innerHTML = '<section class="bloque">' +
+      '<h2 class="h-seccion">Sede de este dispositivo</h2>' +
+      '<p class="intro">La sede se aplica únicamente a documentos nuevos. Los documentos ya creados conservan su sede original.</p>' +
+      campo('Sede actual', '<select id="aSede">' + opcionesSede(C.sedeCodigo) + '</select>') +
+      '<button class="btn btn--fantasma btn--ancho" data-accion="guardar-sede-ajustes">Cambiar sede del dispositivo</button>' +
       '<h2 class="h-seccion">Envío a SST (Power Automate)</h2>' +
       '<p class="intro">La URL y la clave se guardan únicamente en este dispositivo. Si usas otro celular o navegador, debes configurarlas una vez en ese dispositivo. No las publiques en el repositorio.</p>' +
       campo('URL del flujo', '<textarea id="aUrl" rows="4" placeholder="<URL_DEL_FLUJO>">' + esc(C.flujoUrl) + '</textarea>') +
@@ -791,7 +832,8 @@
 
   /* ============================ Acciones ============================ */
   function nuevo(tipo, ats) {
-    if (tipo === 'PETAR' && (!ats || ats.tipo !== 'ATS' || ats.estado !== 'REGISTRADO')) {
+    if (!C.sede || !C.sedeCodigo) { UI.aviso('Primero configura la sede de este dispositivo.', 'mal'); ir('sede'); return Promise.resolve(); }
+    if (tipo === 'PETAR' && (!ats || ats.tipo !== 'ATS' || ats.estado !== 'REGISTRADO' || M.sede(ats) !== C.sede)) {
       avisoATSObligatorio();
       return Promise.resolve();
     }
@@ -823,6 +865,14 @@
     var a = b.dataset.accion, d = st.doc;
 
     switch (a) {
+      case 'guardar-sede':
+        var codigoSede = $('#sedeSeleccion').value;
+        if (!aplicarSede(codigoSede)) { UI.aviso('Selecciona una sede válida.', 'mal'); return; }
+        window.Store.pref('sede_v072', C.sedeCodigo).then(function () {
+          UI.aviso('Sede ' + C.sede + ' configurada', 'ok');
+          ir(st.usuario ? 'inicio' : 'usuario');
+        });
+        break;
       case 'guardar-usuario':
         var n = $('#uNombre').value.trim(), c = $('#uCargo').value.trim();
         if (!n || !c) { UI.aviso('Escribe tu nombre y tu cargo.', 'mal'); return; }
@@ -945,6 +995,20 @@
       /* Ajustes */
       case 'mostrar-clave':
         $('#aClave').type = $('#aMostrarClave').checked ? 'text' : 'password';
+        break;
+      case 'guardar-sede-ajustes':
+        var nuevaSedeCodigo = $('#aSede').value, nuevaSede = buscarSede(nuevaSedeCodigo);
+        if (!nuevaSede) { UI.aviso('Selecciona una sede válida.', 'mal'); return; }
+        if (nuevaSedeCodigo === C.sedeCodigo) { UI.aviso('La sede del dispositivo ya es ' + C.sede + '.'); return; }
+        UI.confirmar({
+          titulo: 'Cambiar sede del dispositivo',
+          texto: 'Los documentos existentes conservarán su sede. Los nuevos ATS y PETAR se crearán para ' + nuevaSede.nombre + '.',
+          aceptar: 'Cambiar a ' + nuevaSede.nombre
+        }).then(function (ok) {
+          if (!ok) return;
+          aplicarSede(nuevaSedeCodigo); st.doc = null;
+          window.Store.pref('sede_v072', C.sedeCodigo).then(function () { UI.aviso('Sede actualizada a ' + C.sede, 'ok'); ir('inicio'); });
+        });
         break;
       case 'guardar-conexion':
         C.flujoUrl = $('#aUrl').value.trim();
@@ -1093,7 +1157,7 @@
       st.motor = m;
       $('#motor').textContent = 'Copia en este celular · ' + m;
       st.fotosDisponibles = window.Store.fotosSoportadas();
-      return Promise.all([window.Store.pref('usuario'), window.Store.pref('flujoUrl_v05'), window.Store.pref('claveArea_v06'), window.Store.pref('claveAjustesHash_v07'), window.Store.pref('claveAjustesHash_v06')]);
+      return Promise.all([window.Store.pref('usuario'), window.Store.pref('flujoUrl_v05'), window.Store.pref('claveArea_v06'), window.Store.pref('claveAjustesHash_v07'), window.Store.pref('claveAjustesHash_v06'), window.Store.pref('sede_v072')]);
     }).then(function (r) {
       // La URL anterior contenía una clave publicada; no se reutiliza.
       window.Store.pref('flujoUrl', '').catch(errorGuardado);
@@ -1101,7 +1165,8 @@
       if (r[2]) C.claveArea = r[2];
       st.claveAjustesHash = r[3] || r[4] || '';
       st.usuario = r[0] || null;
-      ir(st.usuario ? 'inicio' : 'usuario');
+      if (r[5]) aplicarSede(r[5]);
+      ir(C.sede ? (st.usuario ? 'inicio' : 'usuario') : 'sede');
     });
 
     if ('serviceWorker' in navigator && location.protocol === 'https:') {
