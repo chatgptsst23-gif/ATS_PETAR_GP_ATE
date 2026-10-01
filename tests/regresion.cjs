@@ -1,4 +1,4 @@
-/* v07.1 — Ejecutar: node tests/regresion.cjs. No realiza solicitudes de red real. */
+/* v07.2 — Ejecutar: node tests/regresion.cjs. No realiza solicitudes de red real. */
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
@@ -25,11 +25,13 @@ const ctx = vm.createContext({
 const run = f=>vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),ctx);
 ['config.js','modelo.js','datos.js','pdf.js'].forEach(run);
 const M=w.Modelo, C=w.SST_CONFIG;
+C.sede='Ate'; C.sedeCodigo='ATE';
 const user={nombre:'Usuario Prueba',cargo:'Supervisor'};
 const respuesta=(status,obj)=>({status,ok:status>=200&&status<300,text:async()=>typeof obj==='string'?obj:JSON.stringify(obj)});
 const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CLAVE_FICTICIA_V06';};
 (async()=>{
-  assert.equal(C.flujoUrl,''); assert.equal(C.claveArea,''); assert.equal(C.modoPrueba,false); assert.equal(C.version,'v07.1 (piloto operativo)');
+  assert.equal(C.flujoUrl,''); assert.equal(C.claveArea,''); assert.equal(C.modoPrueba,false); assert.equal(C.version,'v07.2 (multisede)');
+  assert.equal(C.sedes.map(s=>s.codigo+':'+s.nombre).join(','),'MON:Montero,SQO:Surquillo,SCO:Surco,SMG:San Miguel,CAL:Callao,ATE:Ate,MOQ:Moquegua,TAC:Tacna');
 
   const p=M.nuevoPETAR('PETAR-PRUEBA',user);
   assert.equal(p.prueba,false); p.tipos.caliente=true;
@@ -48,7 +50,7 @@ const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CL
 
   await w.Store.init();
   const nums=await Promise.all(Array.from({length:100},()=>w.Store.siguienteNumero('ATS')));
-  assert.equal(new Set(nums).size,100);assert(nums.every(n=>n.includes('-'+new Date().getFullYear()+'-')));
+  assert.equal(new Set(nums).size,100);assert(nums.every(n=>n.startsWith('ATS-ATE-'+new Date().getFullYear()+'-')));
   quota=true;await assert.rejects(w.Store.guardar(M.nuevoATS('ATS-CUOTA',user)));quota=false;
 
   C.modoPrueba=true;const pdfDoc=M.nuevoPETAR('PETAR-PRUEBA-PDF',user);
@@ -134,8 +136,12 @@ const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CL
   assert.equal(C.petar.fotos.maxTotal,8);assert.equal(C.petar.fotos.anchoMaximoPx,1024);
 
   const atsRef=M.nuevoATS('ATS-REF',user);atsRef.permisos.caliente=false;atsRef.permisos.altura=true;
+  assert.equal(M.sede(atsRef),'Ate');
   const desdeAts=M.nuevoPETAR('PETAR-V07-DESDE-ATS',user,atsRef);
-  assert.equal(desdeAts.tipos.altura,true);assert.equal(desdeAts.tipos.caliente,false);
+  assert.equal(desdeAts.tipos.altura,true);assert.equal(desdeAts.tipos.caliente,false);assert.equal(M.sede(desdeAts),'Ate');
+  C.sede='Tacna';C.sedeCodigo='TAC';
+  const atsTacna=M.nuevoATS('ATS-TACNA',user);assert.equal(M.sede(atsTacna),'Tacna');
+  C.sede='Ate';C.sedeCodigo='ATE';
 
   const JPG='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAGAAgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDkKKKK8U/TD//Z';
   let fotoN=0; const foto=(t)=>({id:'f_'+(++fotoN),fechaHora:new Date().toISOString(),texto:t,ancho:8,alto:6});
@@ -203,5 +209,5 @@ const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CL
   assert(fuenteDatos.includes("FOTOS = 'fotos'"));assert(fuenteDatos.includes('fotosSoportadas'));
   assert(fs.readFileSync(path.join(root,'modelo.js'),'utf8').includes('lideradoPor: usuario.nombre'));
 
-  console.log('OK: v07.1 operativa (ATS obligatorio + solo Grupo Pana + UI/PDF sin referencias normativas) y regresiones v07/v06/v05.');
+  console.log('OK: v07.2 multisede (ATS obligatorio + sede por dispositivo + trazabilidad por sede) y regresiones v07/v06/v05.');
 })().catch(e=>{console.error(e);process.exitCode=1});
