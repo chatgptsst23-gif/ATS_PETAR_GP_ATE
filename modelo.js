@@ -1,5 +1,5 @@
 /* =====================================================================
-   MODELO — window.Modelo · v07
+   MODELO — window.Modelo · v07.2
    Estructura, validación y estados del ATS y del PETAR.
    Lógica pura: no toca la interfaz ni el almacenamiento.
    ===================================================================== */
@@ -23,9 +23,15 @@
   }
   function firmante(extra) { return Object.assign({ nombre: '', dni: '', firma: '', fechaHora: '' }, extra || {}); }
   function dniValido(d) { return /^\d{8}$/.test((d || '').trim()); }
+  function sedeDe(d) {
+    if (!d) return '';
+    if (d.tipo === 'ATS') return d.generales && d.generales.sede ? d.generales.sede : 'Ate';
+    if (d.tipo === 'PETAR') return d.descripcion && d.descripcion.sede ? d.descripcion.sede : 'Ate';
+    return '';
+  }
 
   var Modelo = {
-    hoy: hoy, hora: hora, aFecha: aFecha, dniValido: dniValido, firmante: firmante,
+    hoy: hoy, hora: hora, aFecha: aFecha, dniValido: dniValido, firmante: firmante, sede: sedeDe,
 
     /* ------------------------------------------------------------ */
     nuevoATS: function (numero, usuario) {
@@ -35,7 +41,7 @@
         creadoEn: new Date().toISOString(), actualizadoEn: '',
         usuario: { nombre: usuario.nombre, cargo: usuario.cargo },
         generales: {
-          tarea: '', ubicacion: '', areaContratista: C.areaPorDefecto,
+          tarea: '', ubicacion: '', areaContratista: C.areaPorDefecto, sede: C.sede,
           fecha: hoy(), hora: hora(), lideradoPor: usuario.nombre, supervisor: ''
         },
         permisos: { caliente: true },
@@ -107,6 +113,7 @@
     vincularATS: function (p, ats) {
       p.descripcion.atsRef = ats.numero;
       p.descripcion.atsId = ats.id;
+      p.descripcion.sede = sedeDe(ats);
       p.descripcion.fecha = ats.generales.fecha;
       if (!p.descripcion.tarea) p.descripcion.tarea = ats.generales.tarea;
       if (!p.descripcion.lugar) p.descripcion.lugar = ats.generales.ubicacion;
@@ -154,9 +161,18 @@
       ['supervisor', 'area', 'ejecutante'].forEach(function (k) { l(d.autorizacion[k]); });
     },
 
-    /* Completa campos nuevos en PETAR creados con versiones anteriores */
+    /* Completa campos nuevos y migra documentos creados antes del modo multisede.
+       Los documentos sin sede pertenecen a Ate porque las versiones anteriores eran exclusivas de esa sede. */
     normalizar: function (d) {
-      if (!d || d.tipo !== 'PETAR') return d;
+      if (!d) return d;
+      if (d.tipo === 'ATS') {
+        d.generales = d.generales || {};
+        if (!d.generales.sede) d.generales.sede = 'Ate';
+        return d;
+      }
+      if (d.tipo !== 'PETAR') return d;
+      d.descripcion = d.descripcion || {};
+      if (!d.descripcion.sede) d.descripcion.sede = 'Ate';
       d.altura = d.altura || {};
       d.escaleras = d.escaleras || { usa: '' };
       d.peligrosos = d.peligrosos || {};
@@ -436,7 +452,7 @@
 
     asuntoCorreo: function (d, momento) {
       var m = { atsRegistrado: 'ATS registrado', petarAutorizado: 'PETAR autorizado', petarCerrado: 'PETAR cerrado', petarCancelado: 'PETAR cancelado', reenvio: 'Reenvío' }[momento] || momento;
-      return '[SST ' + C.sede + '] ' + m + ' — ' + d.numero + ' — ' + Modelo.titulo(d).slice(0, 70);
+      return '[SST ' + Modelo.sede(d) + '] ' + m + ' — ' + d.numero + ' — ' + Modelo.titulo(d).slice(0, 70);
     },
 
     correoHTML: function (d, momento) {
@@ -462,7 +478,7 @@
         if (obs.length) filas += f('Observaciones', obs.join(' | '));
       }
       return '<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#111">' +
-        '<p>Se registró el siguiente documento en <b>' + e(C.sistema) + '</b> — sede ' + e(C.sede) + '.</p>' +
+        '<p>Se registró el siguiente documento en <b>' + e(C.sistema) + '</b> — sede ' + e(Modelo.sede(d)) + '.</p>' +
         '<table style="border-collapse:collapse">' + f('Documento', d.tipo + ' ' + d.numero) + filas + '</table>' +
         '<p style="color:#555">El PDF se adjunta y queda archivado en la carpeta de SST. Registrado por ' + e(d.usuario.nombre) + '.</p>' +
         '<p style="color:#999;font-size:12px">Mensaje generado automáticamente (' + e(momento) + ').</p></div>';
