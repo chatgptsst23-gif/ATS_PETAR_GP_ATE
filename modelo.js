@@ -282,7 +282,8 @@
         req(s.horaFin, 'Indica la hora final: el permiso es válido solo para el día y horario indicados.');
         var ini = aFecha(s.fecha, s.horaInicio), fin = aFecha(s.fecha, s.horaFin);
         if (ini && fin && fin <= ini) e.push('La hora final debe ser posterior a la hora inicial.');
-        req(s.atsRef, 'Indica el ATS de referencia.');
+        req(s.atsRef, 'El PETAR debe tener un ATS de referencia.');
+        req(s.atsId, 'El PETAR debe estar vinculado a un ATS registrado.');
         req(s.ejecutaNombre, 'Indica el área de Grupo Pana que ejecuta.');
         req(s.tarea, 'Describe la tarea.');
         req(s.lugar, 'Indica el lugar específico de la tarea.');
