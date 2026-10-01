@@ -254,7 +254,7 @@
       }
       doc.setDrawColor.apply(doc, LINEA); doc.line(M, H - 13, W - M, H - 13);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(6.3); doc.setTextColor.apply(doc, GRIS);
-      doc.text('Generado digitalmente el ' + fmtFH(new Date().toISOString()) + ' · ' + C.empresa + ' · ' + C.sistema + ' ' + C.version + ' · Sede ' + C.sede, M, H - 9.5);
+      doc.text('Generado digitalmente el ' + fmtFH(new Date().toISOString()) + ' · ' + C.empresa + ' · ' + C.sistema + ' ' + C.version + ' · Sede ' + window.Modelo.sede(d), M, H - 9.5);
       doc.text(d.numero + ' · Página ' + i + ' de ' + n, W - M, H - 9.5, { align: 'right' });
       if (d.tipo === 'PETAR') {
         doc.setFont('helvetica', 'bold'); doc.setTextColor.apply(doc, ROJO); doc.setFontSize(7);
@@ -271,7 +271,7 @@
   function ats(d) {
     var L = new Lienzo(d), g = d.generales;
     L.banda('DATOS DE LA TAREA');
-    L.fila([['Tarea', g.tarea, 0.6], ['Fecha', fmtF(g.fecha), 0.2], ['Hora', g.hora, 0.2]]);
+    L.fila([['Tarea', g.tarea, 0.5], ['Fecha', fmtF(g.fecha), 0.18], ['Hora', g.hora, 0.14], ['Sede', window.Modelo.sede(d), 0.18]]);
     L.fila([['Ubicación', g.ubicacion, 0.5], ['Grupo Pana (Área) / Contratista', g.areaContratista, 0.5]]);
     L.fila([['ATS liderado por', g.lideradoPor, 0.5], ['Supervisor de trabajo', g.supervisor, 0.5]]);
     L.sep();
