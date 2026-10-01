@@ -1,8 +1,14 @@
-# ATS y PETAR — Grupo Pana, sede Ate
+# ATS y PETAR — Grupo Pana · Multisede
 
-## v07.1 · piloto operativo
+## v07.2 · multisede
 
-Versión operativa que integra las funciones v07, el acceso separado de **Usuario / Área SST** y evidencias fotográficas optimizadas para celulares.
+Versión operativa que integra las funciones v07, el acceso separado de **Usuario / Área SST**, evidencias fotográficas optimizadas para celulares y operación multisede.
+
+### Sedes habilitadas
+
+Montero (MON), Surquillo (SQO), Surco (SCO), San Miguel (SMG), Callao (CAL), Ate (ATE), Moquegua (MOQ) y Tacna (TAC).
+
+La sede se selecciona una vez por dispositivo. Luego solo puede cambiarse desde **Ajustes del Área SST**. Cada ATS y PETAR conserva su sede de origen en el documento, PDF, correo y payload de Power Automate.
 
 ### Funciones principales
 
