@@ -27,6 +27,15 @@
     var J = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
     if (!J) throw new Error('No se encontró la librería jsPDF.');
     this.doc = new J({ unit: 'mm', format: 'a4', compress: true });
+    /* v08: la fuente estándar del PDF no tiene flechas ni algunos símbolos; se reemplazan
+       para que textos como "Borde filoso → corte" no salgan con caracteres extraños. */
+    var doc = this.doc, txt0 = doc.text, split0 = doc.splitTextToSize;
+    function limpiar(t) {
+      if (Array.isArray(t)) return t.map(limpiar);
+      return typeof t === 'string' ? t.replace(/[→⇒➜]/g, '->').replace(/[←]/g, '<-').replace(/[≥]/g, '>=').replace(/[≤]/g, '<=') : t;
+    }
+    doc.text = function (t) { var a = Array.prototype.slice.call(arguments); a[0] = limpiar(t); return txt0.apply(doc, a); };
+    doc.splitTextToSize = function (t) { var a = Array.prototype.slice.call(arguments); a[0] = limpiar(t); return split0.apply(doc, a); };
     this.d = d;
     this.y = 0;
     this.cabecera(true);
@@ -274,6 +283,7 @@
     L.fila([['Tarea', g.tarea, 0.5], ['Fecha', fmtF(g.fecha), 0.18], ['Hora', g.hora, 0.14], ['Sede', window.Modelo.sede(d), 0.18]]);
     L.fila([['Ubicación', g.ubicacion, 0.5], ['Grupo Pana (Área) / Contratista', g.areaContratista, 0.5]]);
     L.fila([['ATS liderado por', g.lideradoPor, 0.5], ['Supervisor de trabajo', g.supervisor, 0.5]]);
+    if (g.puesto) L.fila([['Puesto', g.puesto, 0.35], ['Tareas del catálogo B&P', (d.tareasCatalogo || []).join(', ') + (d.tareaLibre ? (d.tareasCatalogo.length ? ' + ' : '') + 'otra tarea' : ''), 0.65]]);
     L.sep();
     L.banda('PERMISOS DE TRABAJO');
     L.casillas(C.ats.permisos.map(function (p) {
@@ -326,7 +336,8 @@
     L.fila([['Descripción de la tarea', s.tarea, 1]]);
     L.fila([['Lugar específico de la tarea', s.lugar, 1]]);
     L.casillas(window.Modelo.configPetar(d).tipos.map(function (t) { return [t.label, !!d.tipos[t.id]]; }), 4);
-    L.tabla([{ t: 'Pregunta', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
+    /* v08: en el PETAR B&P la capacitación se verifica una sola vez en los requisitos de seguridad. */
+    if (!window.Modelo.esBP(d)) L.tabla([{ t: 'Pregunta', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
       [['¿Se llevó a cabo la capacitación previa de los trabajadores que realizarán el trabajo?', sn(s.capacitacion)]]);
     if (window.Modelo.esCarroceria(d)) L.nota(window.Modelo.configPetar(d).alcance);
     else L.nota('II. Monitoreo del ambiente de trabajo: aplica a espacios confinados y materiales peligrosos; no habilitado en esta versión.');
@@ -395,7 +406,7 @@
     var m = d.emergencia;
     L.banda('VI. PROTOCOLOS DE RESPUESTA ANTE EMERGENCIA');
     L.fila([['Nombre del encargado de la sede', m.encargadoSede, 0.5], ['Nombre del supervisor o prevencionista', m.supervisorPrevencionista, 0.5]]);
-    var emer = window.Modelo.configPetar(d).emergencias.map(function (x) { return [x, sn(m.emergencias[x])]; });
+    var emer = window.Modelo.emergenciasDe(d).map(function (x) { return [x, sn(m.emergencias[x])]; });
     if (m.emergenciaOtro) emer.push(['Otros: ' + m.emergenciaOtro, 'SÍ']);
     var equi = window.Modelo.configPetar(d).equiposEmergencia.map(function (x) { return [x, sn(m.equipos[x])]; });
     if (m.equipoOtro) equi.push(['Otros: ' + m.equipoOtro, 'SÍ']);

@@ -1,6 +1,6 @@
-/* v07.4: multisede, caché exclusiva de esta aplicación. */
-var CACHE = 'sst-pana-ats-petar-v07-4-carroceria';
-var ARCHIVOS = ['./', './index.html', './styles.css', './config.js', './logo.js', './logo_isotipo.png', './logo_isotipo_blanco.png', './ui.js', './modelo.js', './datos.js', './pdf.js', './app.js', './jspdf.umd.min.js', './icono-192.png', './icono-512.png', './manifest.webmanifest'];
+/* v08: catálogo B&P; multisede, caché exclusiva de esta aplicación. */
+var CACHE = 'sst-pana-ats-petar-v08';
+var ARCHIVOS = ['./', './index.html', './styles.css', './config.js', './logo.js', './logo_isotipo.png', './logo_isotipo_blanco.png', './ui.js', './catalogo_bp.js', './modelo.js', './datos.js', './pdf.js', './app.js', './jspdf.umd.min.js', './icono-192.png', './icono-512.png', './manifest.webmanifest'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(ARCHIVOS); }).then(function () { return self.skipWaiting(); }));
 });

@@ -1,5 +1,5 @@
 /* =====================================================================
-   APLICACIÓN — Grupo Pana · Gestión Digital SST · v07.3
+   APLICACIÓN — Grupo Pana · Gestión Digital SST · v08
    ATS y PETAR de trabajos de alto riesgo. Pantallas, navegación y acciones.
    ===================================================================== */
 (function () {
@@ -132,7 +132,12 @@
   function preguntaV(d, seccion, it, alertaNo) {
     var ruta = seccion + '.' + it.id, v = d[seccion][it.id];
     return preguntaGuiada(it, ruta, v, it.admiteNA ? ESC_SNNA : ESC_SN,
-      v === 'no' ? (it.nivel === 'critico' ? ['mal', alertaNo || 'Control crítico sin cumplir: el permiso no puede autorizarse.'] : ['aviso', 'Registra la medida adoptada en Observaciones.']) : null);
+      v === 'no' ? (it.nivel === 'critico' ? ['mal', alertaNo || 'Control crítico sin cumplir: el permiso no puede autorizarse.'] : ['aviso', 'Registra la medida adoptada en Observaciones.']) : autoNota(d, ruta, v));
+  }
+  /* Respuesta precargada por la app (v08): se muestra el motivo mientras no se cambie. */
+  function autoNota(d, ruta, v) {
+    var n = d.autoRespuestas && d.autoRespuestas[ruta];
+    return n && v ? ['ok', n] : null;
   }
 
   function preguntaGuiada(it, ruta, valor, escala, alerta) {
@@ -338,7 +343,7 @@
           '<div class="alerta alerta--aviso">Envío a SST no configurado: los documentos se generan, pero no se envían por correo ni se guardan en SharePoint. <button class="enlace" data-accion="ir-ajustes">Configurar</button></div>') +
         '<div class="dos-botones">' +
           '<button class="btn-nuevo" data-accion="nuevo-ats"><span class="btn-nuevo__signo">+</span><span class="btn-nuevo__txt"><strong>Nuevo ATS</strong><small>Análisis de trabajo seguro</small></span></button>' +
-          '<button class="btn-nuevo btn-nuevo--petar" data-accion="nuevo-petar"><span class="btn-nuevo__signo">+</span><span class="btn-nuevo__txt"><strong>Nuevo PETAR</strong><small>Trabajo en caliente · carrocería</small></span></button>' +
+          '<button class="btn-nuevo btn-nuevo--petar" data-accion="nuevo-petar"><span class="btn-nuevo__signo">+</span><span class="btn-nuevo__txt"><strong>Nuevo PETAR</strong><small>Caliente · altura · mat. peligrosos</small></span></button>' +
         '</div>' +
         (vencidos.length ? '<div class="alerta alerta--mal">' + vencidos.length + ' PETAR superó su horario sin registrar el cierre.</div>' : '') +
         '<div class="cifras">' + cifra(petarVig.length, 'PETAR vigentes') + cifra(atsHoy.length, 'ATS de hoy') + cifra(pend.length, 'Envíos pendientes') + '</div>' +
@@ -383,13 +388,13 @@
 
   /* ======================= Pantalla: elegir ATS ===================== */
   function vElegirATS() {
-    var ats = st.lista.filter(esSedeActual).filter(function (d) { return d.tipo === 'ATS' && d.estado === 'REGISTRADO' && M.atsCompatibleCarroceria(d); });
+    var ats = st.lista.filter(esSedeActual).filter(function (d) { return d.tipo === 'ATS' && d.estado === 'REGISTRADO' && M.atsRequierePetar(d); });
     app.innerHTML = '<section class="bloque">' +
-      '<p class="intro">Este PETAR es exclusivo de soldadura y esmerilado de carrocería. Selecciona su ATS registrado con trabajo en caliente; se copiarán la tarea, el lugar y el personal.</p>' +
+      '<p class="intro">Selecciona el ATS registrado. El PETAR incluirá las secciones que exigen sus tareas (caliente, altura o materiales peligrosos) y copiará la tarea, el lugar, el personal y el EPP.</p>' +
       (ats.length ? ats.slice(0, 10).map(function (d) {
         return '<button class="tarjeta" data-accion="petar-desde" data-id="' + esc(d.id) + '"><div class="tarjeta__fila"><strong>' + esc(d.numero) + '</strong>' + pastilla(d) + '</div>' +
           '<div class="tarjeta__meta">' + esc(d.generales.tarea) + '</div><div class="tarjeta__meta">' + esc(fecha(d.generales.fecha)) + ' · ' + d.personal.length + ' persona(s)</div></button>';
-      }).join('') : '<div class="alerta alerta--aviso"><strong>No hay ATS compatibles.</strong><div>Registra el ATS de carrocería indicando trabajo en caliente. Los trabajos que requieren otros permisos deben gestionarse por separado.</div></div>' +
+      }).join('') : '<div class="alerta alerta--aviso"><strong>No hay ATS que requieran PETAR.</strong><div>Registra primero el ATS con tus tareas. Las que exigen PETAR (soldadura, esmerilado, spotter, altura desde 1,80 m o ingreso no rutinario al horno) lo indican al elegirlas.</div></div>' +
         '<button class="btn btn--principal btn--ancho" data-accion="nuevo-ats">Crear ATS</button>') +
       '</section>';
   }
@@ -401,7 +406,7 @@
     var d = st.doc, pasos = M.pasos(d), id = pasos[st.paso].id;
     var legado = d.tipo === 'PETAR' && !M.esCarroceria(d) ? '<div class="alerta alerta--aviso">Este borrador conserva el formato general anterior. Para usar el PETAR exclusivo de carrocería, crea uno nuevo desde el ATS correspondiente.</div>' : '';
     var cuerpo = d.tipo === 'ATS'
-      ? { generales: fAtsGenerales, pasos: fAtsPasos, epp: fAtsEpp }[id](d)
+      ? { tareas: fAtsTareas, generales: fAtsGenerales, pasos: fAtsPasos, epp: fAtsEpp }[id](d)
       : { descripcion: fPDescripcion, epp: fPEpp, requisitos: fPRequisitos, caliente: fPCaliente, altura: fPAltura, peligrosos: fPPeligrosos, evidencias: fPEvidencias, emergencia: fPEmergencia }[id](d);
     app.innerHTML = legado +
       '<div class="progreso"><div class="progreso__puntos">' + pasos.map(function (p, i) {
@@ -414,8 +419,53 @@
   }
 
   /* --- ATS --- */
+  var NOMBRE_PERMISO = { caliente: 'trabajo en caliente', altura: 'trabajo en altura', peligrosos: 'materiales peligrosos (no rutinario)' };
+  function fAtsTareas(d) {
+    var g = d.generales, cat = M.catalogo(), req = M.permisosRequeridos(d);
+    var tareas = g.puesto ? M.tareasDePuesto(g.puesto) : [];
+    var petar = Object.keys(req).filter(function (k) { return req[k]; }).map(function (k) { return NOMBRE_PERMISO[k] || k; });
+    return '<p class="intro">Elige tu puesto y las tareas que harás. Los pasos, peligros, controles y EPP se completan solos; luego los revisas.</p>' +
+      '<label class="etiqueta">Puesto *</label><div class="fichas">' + cat.puestos.map(function (p) {
+        return '<button type="button" class="ficha' + (g.puesto === p ? ' es-activo' : '') + '" data-accion="puesto" data-valor="' + esc(p) + '">' + esc(p) + '</button>';
+      }).join('') + '</div>' +
+      (g.puesto ? '<label class="etiqueta">Tareas * <small>(puedes elegir varias)</small></label><div class="lista-tareas">' + tareas.map(function (t) {
+        var on = d.tareasCatalogo.indexOf(t.codigo) >= 0;
+        var etq = { caliente: 'PETAR caliente', altura: 'PETAR altura desde 1,80 m', peligrosos: 'PETAR mat. peligrosos' };
+        var marcaPetar = Object.keys(t.permisos || {}).map(function (k) { return '<span class="etq-petar">' + esc(etq[k] || 'PETAR') + '</span>'; }).join('');
+        return '<button type="button" class="tarea-op' + (on ? ' es-activo' : '') + '" data-accion="tarea" data-codigo="' + esc(t.codigo) + '">' +
+          '<span class="tarea-op__check">' + (on ? '✓' : '') + '</span><span class="tarea-op__txt">' + esc(t.nombre) + marcaPetar + '</span></button>';
+      }).join('') +
+      '<button type="button" class="tarea-op' + (d.tareaLibre ? ' es-activo' : '') + '" data-accion="tarea-libre"><span class="tarea-op__check">' + (d.tareaLibre ? '✓' : '') + '</span><span class="tarea-op__txt">Otra tarea (no está en la lista): la describo yo</span></button></div>' : '') +
+      (M.requiereAltura18(d) ? pregunta('¿El trabajo en zonas altas será desde 1,80 m de altura? *', 'alturaDesde18', d.alturaDesde18, ESC_SN, '', null,
+        '<p class="ayuda">Criterio provisional del área: desde 1,80 m se requiere PETAR de altura.</p>') : '') +
+      (petar.length ? '<div class="alerta alerta--aviso"><strong>Estas tareas requieren PETAR de ' + esc(petar.join(', ')) + '.</strong><div>Al registrar el ATS, el técnico ejecutante crea su PETAR desde este ATS.</div></div>' : '');
+  }
+
+  function opcionesUbicacion(d) {
+    var l = M.ubicacionesSede(C.sedeCodigo), g = d.generales, sel = g.ubicacionSel || '';
+    if (!l.length) return null;
+    return '<select data-campo="generales.ubicacionSel"><option value="">Selecciona la ubicación</option>' + l.map(function (u) {
+      return '<option value="' + esc(u.nombre) + '"' + (sel === u.nombre ? ' selected' : '') + '>' + esc(u.nombre) + '</option>';
+    }).join('') + '<option value="__otro"' + (sel === '__otro' ? ' selected' : '') + '>Otro lugar (indicar)</option></select>';
+  }
+
   function fAtsGenerales(d) {
     var g = d.generales;
+    if (M.usaCatalogo(d)) {
+      var sel = opcionesUbicacion(d), req = M.permisosRequeridos(d);
+      return numeroFijo(d) +
+        campo('Tarea *', area('generales.tarea', g.tarea, 'Se completa con las tareas elegidas; agrega placa u OT si corresponde.', 2)) +
+        (sel ? campo('Ubicación *', sel) + (g.ubicacionSel === '__otro' ? campo('Indica el lugar *', txt('generales.ubicacion', g.ubicacion, 'Ej. Patio de maniobras')) : '')
+             : campo('Ubicación *', txt('generales.ubicacion', g.ubicacion, 'Ej. Bahía 3 de planchado'))) +
+        '<div class="par">' + campo('Fecha *', txt('generales.fecha', g.fecha, '', 'date')) + campo('Hora *', txt('generales.hora', g.hora, '', 'time')) + '</div>' +
+        campo('ATS liderado por *', txt('generales.lideradoPor', g.lideradoPor, 'Nombres y apellidos')) +
+        campo('Supervisor de trabajo *', txt('generales.supervisor', g.supervisor, 'Nombres y apellidos'), 'Se completa con el dato de la sede (Área SST → Ajustes) si está configurado.') +
+        '<details class="ayuda-pregunta"><summary>Área y otros permisos</summary>' +
+        campo('Área de Grupo Pana *', txt('generales.areaContratista', g.areaContratista, 'Ej. Planchado y pintura')) +
+        '<p class="ayuda">Los permisos que exigen las tareas ya están marcados y no se pueden quitar.</p><div class="fichas">' +
+        C.ats.permisos.map(function (p) { return ficha('toggle', 'permisos.' + p.id, d.permisos[p.id], p.label + (req[p.id] ? ' · por la tarea' : ''), !!req[p.id]); }).join('') + '</div>' +
+        (d.permisos.otro ? campo('Especifica el otro permiso *', txt('permisoOtro', d.permisoOtro, '')) : '') + '</details>';
+    }
     return numeroFijo(d) +
       campo('Tarea *', txt('generales.tarea', g.tarea, 'Ej. Ensamblaje de carrocería o preparación de pintura')) +
       campo('Ubicación *', txt('generales.ubicacion', g.ubicacion, 'Ej. Bahía 3 de planchado')) +
@@ -431,10 +481,12 @@
   }
 
   function fAtsPasos(d) {
-    return '<p class="intro">Describe cada paso y cómo podría afectar a una persona. Incluye a quienes trabajan cerca, no solo daños al vehículo.</p>' +
+    return (M.usaCatalogo(d) ? '<p class="intro">Los pasos vienen de las tareas elegidas. Léanlos juntos, corrijan lo que no aplique y agreguen lo particular de hoy.</p>' :
+      '<p class="intro">Describe cada paso y cómo podría afectar a una persona. Incluye a quienes trabajan cerca, no solo daños al vehículo.</p>') +
       d.pasos.map(function (p, i) {
         var r = 'pasos.' + i + '.';
-        return '<article class="cond"><header class="cond__cab"><h3>Paso ' + (i + 1) + '</h3>' +
+        var tc = p.origen ? M.tareaCatalogo(p.origen) : null;
+        return '<article class="cond"><header class="cond__cab"><h3>Paso ' + (i + 1) + (tc ? ' <small class="nota">· ' + esc(tc.nombre) + '</small>' : '') + '</h3>' +
           (d.pasos.length > 1 ? '<button class="enlace enlace--mal" data-accion="quitar-paso" data-i="' + i + '">Quitar</button>' : '') + '</header>' +
           campo('¿Qué vamos a hacer? *', area(r + 'paso', p.paso, 'Secuencia del paso', 2)) +
           campo('Peligro y riesgo para la persona *', area(r + 'evento', p.evento, 'Ej. Borde filoso → corte en la mano. Postura forzada → lesión muscular.', 3), 'Indica qué puede causar daño y qué lesión o afectación a la salud podría producir.') +
@@ -444,7 +496,7 @@
           '</article>';
       }).join('') +
       (d.pasos.length < C.ats.maxPasos ? '<button class="btn btn--secundario btn--ancho" data-accion="agregar-paso">+ Agregar paso</button>' : '<p class="nota">Máximo ' + C.ats.maxPasos + ' pasos.</p>') +
-      (d.pasos.length === 1 && !d.pasos[0].paso ? '<button class="enlace" data-accion="ejemplo-pasos">Cargar un ejemplo de soldadura para la demostración</button>' : '');
+      (!M.usaCatalogo(d) && d.pasos.length === 1 && !d.pasos[0].paso ? '<button class="enlace" data-accion="ejemplo-pasos">Cargar un ejemplo de soldadura para la demostración</button>' : '');
   }
 
   function fAtsEpp(d) {
@@ -466,10 +518,11 @@
       campo('Área de Grupo Pana *', txt('descripcion.ejecutaNombre', s.ejecutaNombre, M.esCarroceria(d) ? 'Carrocería / planchado' : 'Ej. Planchado y pintura')) +
       campo('Descripción de la tarea *', area('descripcion.tarea', s.tarea, M.esCarroceria(d) ? 'Indica la soldadura o esmerilado, el vehículo (placa/OT) o pieza y el equipo utilizado.' : 'Qué se hará, con qué equipo y sobre qué elemento', 3)) +
       campo('Lugar específico de la tarea *', txt('descripcion.lugar', s.lugar, 'Ej. Bahía 3, lado norte')) +
-      (M.esCarroceria(d) ? '<div class="caja-info"><strong>Trabajo en caliente de carrocería</strong><p>' + esc(M.configPetar(d).alcance) + '</p></div>' :
+      (M.esBP(d) ? '<div class="caja-info"><strong>Secciones de este permiso (según las tareas del ATS)</strong><p>' + esc(M.tiposTexto(d)) + '</p></div>' :
+       M.esCarroceria(d) ? '<div class="caja-info"><strong>Trabajo en caliente de carrocería</strong><p>' + esc(M.configPetar(d).alcance) + '</p></div>' :
         '<label class="etiqueta">Tipo de trabajo *</label><div class="fichas">' + M.configPetar(d).tipos.filter(function (t) { return t.activo || d.tipos[t.id]; }).map(function (t) { return ficha('toggle', 'tipos.' + t.id, d.tipos[t.id], t.label + (t.activo ? '' : ' · próx. versión'), !t.activo); }).join('') + '</div>') +
-      pregunta('¿Se llevó a cabo la capacitación previa de los trabajadores que realizarán el trabajo? *', 'descripcion.capacitacion', s.capacitacion, ESC_SN,
-        marca('critico'), s.capacitacion === 'no' ? ['mal', 'Sin capacitación previa el permiso no puede autorizarse.'] : null);
+      (M.esBP(d) ? '' : pregunta('¿Se llevó a cabo la capacitación previa de los trabajadores que realizarán el trabajo? *', 'descripcion.capacitacion', s.capacitacion, ESC_SN,
+        marca('critico'), s.capacitacion === 'no' ? ['mal', 'Sin capacitación previa el permiso no puede autorizarse.'] : null));
   }
 
   function fPEpp(d) {
@@ -492,7 +545,7 @@
     return '<p class="intro">Responde el supervisor responsable del trabajo. Un "No" impide autorizar el permiso.</p>' +
       M.configPetar(d).requisitos.map(function (r) {
         var v = d.requisitos[r.id];
-        return preguntaGuiada(r, 'requisitos.' + r.id, v, ESC_SN, v === 'no' ? ['mal', 'Corrige en campo antes de autorizar.'] : null);
+        return preguntaGuiada(r, 'requisitos.' + r.id, v, ESC_SN, v === 'no' ? ['mal', 'Corrige en campo antes de autorizar.'] : autoNota(d, 'requisitos.' + r.id, v));
       }).join('');
   }
 
@@ -552,7 +605,7 @@
     return '<p class="intro">Los contactos pueden completarse desde Área SST → Ajustes. Confirma que sigan vigentes; verifica las condiciones de emergencia en cada trabajo.</p>' + campo('Nombre del encargado de la sede *', txt('emergencia.encargadoSede', m.encargadoSede, '')) +
       campo('Nombre del supervisor o prevencionista *', txt('emergencia.supervisorPrevencionista', m.supervisorPrevencionista, '')) +
       '<h2 class="h-seccion">Posible emergencia detectada</h2>' +
-      M.configPetar(d).emergencias.map(function (x) { return preguntaCompacta(x, 'emergencia.emergencias.' + x, m.emergencias[x]); }).join('') +
+      M.emergenciasDe(d).map(function (x) { return preguntaCompacta(x, 'emergencia.emergencias.' + x, m.emergencias[x]); }).join('') +
       campo('Otros (indicar)', txt('emergencia.emergenciaOtro', m.emergenciaOtro, '')) +
       '<h2 class="h-seccion">Equipos de emergencia</h2>' +
       M.configPetar(d).equiposEmergencia.map(function (x) { return preguntaCompacta(x, 'emergencia.equipos.' + x, m.equipos[x]); }).join('') +
@@ -674,7 +727,7 @@
     var acc = '<button class="btn btn--principal btn--ancho" data-accion="ver-pdf">Ver documento PDF</button>' +
       '<button class="btn btn--fantasma btn--ancho" data-accion="descargar-pdf">Descargar PDF</button>';
     if (d.estado !== 'BORRADOR') acc += '<button class="btn btn--fantasma btn--ancho" data-accion="reenviar">Reenviar a SST</button>';
-    if (d.tipo === 'ATS' && d.estado === 'REGISTRADO' && M.atsCompatibleCarroceria(d)) acc += '<button class="btn btn--secundario btn--ancho" data-accion="petar-desde" data-id="' + esc(d.id) + '">Crear PETAR con este ATS</button>';
+    if (d.tipo === 'ATS' && d.estado === 'REGISTRADO' && M.atsRequierePetar(d)) acc += '<button class="btn btn--secundario btn--ancho" data-accion="petar-desde" data-id="' + esc(d.id) + '">Crear PETAR con este ATS</button>';
     if (d.tipo === 'PETAR' && e === 'AUTORIZADO') acc +=
       '<button class="btn btn--secundario btn--ancho" data-accion="ir-verificacion">Registrar verificación durante el trabajo</button>' +
       '<button class="btn btn--secundario btn--ancho" data-accion="ir-cierre">Cerrar permiso</button>' +
@@ -873,9 +926,10 @@
       avisoATSObligatorio();
       return Promise.resolve();
     }
-    if (tipo === 'PETAR' && !M.atsCompatibleCarroceria(ats)) { UI.aviso('Este PETAR es de carrocería y requiere un ATS con trabajo en caliente. Si hay otros permisos, deben gestionarse por separado.', 'mal'); return Promise.resolve(); }
+    if (tipo === 'PETAR' && !M.atsRequierePetar(ats)) { UI.aviso('Este ATS no tiene tareas que requieran PETAR (caliente, altura o materiales peligrosos).', 'mal'); return Promise.resolve(); }
     return window.Store.siguienteNumero(tipo).then(function (n) {
-      st.doc = tipo === 'ATS' ? M.nuevoATS(n, st.usuario) : M.nuevoPETARCarroceria(n, st.usuario, ats);
+      st.doc = tipo === 'ATS' ? M.nuevoATS(n, st.usuario) : M.nuevoPETARBP(n, st.usuario, ats);
+      if (tipo === 'ATS' && M.usaCatalogo(st.doc) && st.puesto && M.catalogo().puestos.indexOf(st.puesto) >= 0) st.doc.generales.puesto = st.puesto;
       M.aplicarContactos(st.doc, st.contactosPorSede[C.sedeCodigo]);
       if (tipo === 'PETAR') st.doc.evidenciasNoDisponibles = !window.Store.fotosSoportadas();
       return window.Store.guardar(st.doc);
@@ -954,6 +1008,7 @@
       case 'resp':
         var actual = getPath(d, b.dataset.ruta);
         setPath(d, b.dataset.ruta, actual === b.dataset.valor && b.dataset.ruta !== 'descripcion.ejecutaTipo' ? '' : b.dataset.valor);
+        if (b.dataset.ruta === 'alturaDesde18') M.aplicarTareas(d);
         guardarLuego(); quieto();
         break;
       case 'toggle':
@@ -964,6 +1019,19 @@
         }
         setPath(d, rutaToggle, nuevoValor);
         if (d.tipo === 'PETAR' && rutaToggle.indexOf('tipos.') === 0 && nuevoValor) (C.petar.eppPorTipo[rutaToggle.split('.')[1]] || []).forEach(function (k) { d.epp[k] = true; });
+        guardarLuego(); quieto(); break;
+      case 'puesto':
+        d.generales.puesto = b.dataset.valor; st.puesto = b.dataset.valor;
+        window.Store.pref('puesto_v08', st.puesto).catch(function () {});
+        guardarLuego(); quieto(); break;
+      case 'tarea':
+        var cod = b.dataset.codigo, ix = d.tareasCatalogo.indexOf(cod);
+        if (ix >= 0) d.tareasCatalogo.splice(ix, 1); else d.tareasCatalogo.push(cod);
+        M.aplicarTareas(d); guardarLuego(); quieto(); break;
+      case 'tarea-libre':
+        d.tareaLibre = !d.tareaLibre;
+        if (d.tareaLibre && !d.pasos.some(function (p) { return !p.origen; })) d.pasos.push({ paso: '', evento: '', critico: '', medidas: '', responsable: d.generales.lideradoPor || '' });
+        if (!d.tareaLibre) d.pasos = d.pasos.filter(function (p) { return p.origen || p.paso || p.evento || p.medidas; });
         guardarLuego(); quieto(); break;
       case 'sugerir-epp':
         M.sugerirEpp(d, b.dataset.perfil); guardarLuego(); quieto(); UI.aviso('Sugerencia añadida. Revisa los EPP para esta tarea.'); break;
@@ -1172,6 +1240,7 @@
   function entrada(ev) {
     var el = ev.target;
     if (!el.dataset || !el.dataset.campo || !st.doc) return;
+    if (el.dataset.campo === 'generales.ubicacionSel') { M.aplicarUbicacion(st.doc, el.value); guardarLuego(); quieto(); return; }
     setPath(st.doc, el.dataset.campo, el.value);
     guardarLuego();
     if (el.dataset.campo === 'descripcion.atsRef') st.doc.descripcion.atsId = '';
@@ -1203,7 +1272,7 @@
       st.motor = m;
       $('#motor').textContent = 'Copia en este celular · ' + m;
       st.fotosDisponibles = window.Store.fotosSoportadas();
-      return Promise.all([window.Store.pref('usuario'), window.Store.pref('flujoUrl_v05'), window.Store.pref('claveArea_v06'), window.Store.pref('claveAjustesHash_v07'), window.Store.pref('claveAjustesHash_v06'), window.Store.pref('sede_v072'), window.Store.pref('contactosPorSede_v073')]);
+      return Promise.all([window.Store.pref('usuario'), window.Store.pref('flujoUrl_v05'), window.Store.pref('claveArea_v06'), window.Store.pref('claveAjustesHash_v07'), window.Store.pref('claveAjustesHash_v06'), window.Store.pref('sede_v072'), window.Store.pref('contactosPorSede_v073'), window.Store.pref('puesto_v08')]);
     }).then(function (r) {
       // La URL anterior contenía una clave publicada; no se reutiliza.
       window.Store.pref('flujoUrl', '').catch(errorGuardado);
@@ -1213,6 +1282,7 @@
       st.usuario = r[0] || null;
       if (r[5]) aplicarSede(r[5]);
       st.contactosPorSede = r[6] || {};
+      st.puesto = r[7] || '';
       ir(C.sede ? (st.usuario ? 'inicio' : 'usuario') : 'sede');
     });
 

@@ -1,5 +1,5 @@
 /* =====================================================================
-   MODELO — window.Modelo · v07.3
+   MODELO — window.Modelo · v08
    Estructura, validación y estados del ATS y del PETAR.
    Lógica pura: no toca la interfaz ni el almacenamiento.
    ===================================================================== */
@@ -7,6 +7,9 @@
   'use strict';
 
   var C = window.SST_CONFIG;
+  function CAT() { return window.SST_CATALOGO || { tareas: [], puestos: [], ubicacionesPorSede: {} }; }
+  function tareaCat(codigo) { return CAT().tareas.find(function (t) { return t.codigo === codigo; }) || null; }
+  function norm(t) { return String(t || '').trim().toLowerCase().replace(/\s+/g, ' '); }
 
   function hoy() {
     var d = new Date();
@@ -46,7 +49,10 @@
         },
         permisos: {},
         permisoOtro: '',
-        pasos: [{ paso: '', evento: '', critico: '', medidas: '', responsable: '' }],
+        pasos: window.SST_CATALOGO ? [] : [{ paso: '', evento: '', critico: '', medidas: '', responsable: '' }],
+        /* v08: tareas del catálogo B&P que precargan el ATS */
+        catalogo: window.SST_CATALOGO ? CAT().version : '',
+        tareasCatalogo: [], tareaLibre: false, alturaDesde18: '', auto: {}, permisosAuto: {},
         epp: {},
         otrosEpp: '', herramientas: '', comentarios: '',
         personal: [],
@@ -108,8 +114,115 @@
       return p;
     },
 
-    esCarroceria: function (d) { return !!d && d.tipo === 'PETAR' && d.perfilPetar === 'carroceria-v1'; },
-    configPetar: function (d) { return Modelo.esCarroceria(d) ? C.petarCarroceria : C.petar; },
+    esCarroceria: function (d) { return !!d && d.tipo === 'PETAR' && (d.perfilPetar === 'carroceria-v1' || d.perfilPetar === 'bp-v1'); },
+    esBP: function (d) { return !!d && d.tipo === 'PETAR' && d.perfilPetar === 'bp-v1'; },
+    configPetar: function (d) { return Modelo.esBP(d) ? C.petarBP : Modelo.esCarroceria(d) ? C.petarCarroceria : C.petar; },
+
+    /* ------------------- v08: catálogo de tareas B&P ------------------- */
+    catalogo: CAT,
+    tareaCatalogo: tareaCat,
+    usaCatalogo: function (d) { return !!(d && d.tipo === 'ATS' && d.catalogo); },
+    tareasDePuesto: function (puesto) { return CAT().tareas.filter(function (t) { return !puesto || t.puestos.indexOf(puesto) >= 0; }); },
+    ubicacionesSede: function (codigo) { return (CAT().ubicacionesPorSede || {})[codigo] || []; },
+
+    /* Permisos que exigen las tareas: caliente y materiales peligrosos siempre;
+       altura solo si el trabajo es desde 1,80 m (criterio provisional). */
+    permisosRequeridos: function (d) {
+      var r = {};
+      (d.tareasCatalogo || []).forEach(function (c) {
+        var t = tareaCat(c); if (!t) return;
+        Object.keys(t.permisos || {}).forEach(function (k) {
+          if (t.permisos[k] === 'desde18') { if (d.alturaDesde18 === 'si') r[k] = true; }
+          else if (t.permisos[k]) r[k] = true;
+        });
+      });
+      return r;
+    },
+    requiereAltura18: function (d) {
+      return (d.tareasCatalogo || []).some(function (c) { var t = tareaCat(c); return t && t.permisos && t.permisos.altura === 'desde18'; });
+    },
+
+    /* Reconstruye pasos, permisos, EPP, herramientas y tarea a partir de las tareas elegidas.
+       Conserva los pasos editados de tareas que siguen elegidas y los pasos agregados a mano;
+       los textos generales solo se reemplazan si no fueron editados. */
+    aplicarTareas: function (d) {
+      if (!Modelo.usaCatalogo(d)) return d;
+      d.auto = d.auto || {}; d.permisosAuto = d.permisosAuto || {};
+      var elegidas = CAT().tareas.filter(function (t) { return d.tareasCatalogo.indexOf(t.codigo) >= 0; });
+      var resp = d.generales.lideradoPor || 'Ejecutante';
+      var pasos = [];
+      elegidas.forEach(function (t) {
+        var previos = d.pasos.filter(function (p) { return p.origen === t.codigo; });
+        if (previos.length) pasos = pasos.concat(previos);
+        else t.pasos.forEach(function (x) { pasos.push({ paso: x.paso, evento: x.evento, critico: x.critico, medidas: x.medidas, responsable: resp, origen: t.codigo }); });
+      });
+      d.pasos = pasos.concat(d.pasos.filter(function (p) { return !p.origen; }));
+      if (!Modelo.requiereAltura18(d)) d.alturaDesde18 = '';
+      var req = Modelo.permisosRequeridos(d);
+      Object.keys(d.permisosAuto).forEach(function (k) { if (d.permisosAuto[k] && !req[k]) d.permisos[k] = false; });
+      Object.keys(req).forEach(function (k) { d.permisos[k] = true; });
+      d.permisosAuto = req;
+      elegidas.forEach(function (t) { (t.eppIds || []).forEach(function (k) { d.epp[k] = true; }); });
+      function unir(lista) {
+        var vistos = [], out = [];
+        lista.forEach(function (txt) { String(txt || '').split(',').forEach(function (x) { x = x.trim(); if (x && x !== '—' && vistos.indexOf(norm(x)) < 0) { vistos.push(norm(x)); out.push(x); } }); });
+        return out.join(', ');
+      }
+      function auto(campo, valor, obj, clave) {
+        if (!obj[clave] || obj[clave] === d.auto[campo]) obj[clave] = valor;
+        d.auto[campo] = valor;
+      }
+      auto('tarea', elegidas.map(function (t) { return t.nombre; }).join('; '), d.generales, 'tarea');
+      auto('otrosEpp', unir(elegidas.map(function (t) { return t.epp; })), d, 'otrosEpp');
+      auto('herramientas', unir(elegidas.map(function (t) { return t.herramientas; })), d, 'herramientas');
+      return d;
+    },
+
+    aplicarUbicacion: function (d, valor) {
+      var u = Modelo.ubicacionesSede(C.sedeCodigo).find(function (x) { return x.nombre === valor; });
+      d.generales.ubicacionSel = valor;
+      if (u) { d.generales.ubicacion = u.nombre; d.generales.ubicacionTipo = u.tipo; }
+      else { if (d.generales.ubicacionTipo) d.generales.ubicacion = ''; d.generales.ubicacionTipo = valor ? 'otro' : ''; }
+    },
+
+    atsRequierePetar: function (ats) {
+      return !!(ats && ats.tipo === 'ATS' && ats.permisos && (ats.permisos.caliente || ats.permisos.altura || ats.permisos.peligrosos));
+    },
+    permisosSinFormato: function (ats) {
+      return ['confinado', 'electrico', 'excavacion', 'otro'].filter(function (k) { return ats && ats.permisos && ats.permisos[k]; });
+    },
+
+    /* Un PETAR por ATS con las secciones que exigen sus tareas. */
+    nuevoPETARBP: function (numero, usuario, ats) {
+      if (!Modelo.atsRequierePetar(ats)) throw new Error('El ATS no indica trabajos que requieran PETAR (caliente, altura o materiales peligrosos).');
+      var p = Modelo.nuevoPETAR(numero, usuario, ats);
+      p.perfilPetar = 'bp-v1';
+      p.tipos = { caliente: !!ats.permisos.caliente, altura: !!ats.permisos.altura, peligrosos: !!ats.permisos.peligrosos };
+      Object.keys(p.tipos).forEach(function (t) { if (p.tipos[t]) (C.petar.eppPorTipo[t] || []).forEach(function (k) { p.epp[k] = true; }); });
+      var fin = C.petar.horaFinTurno || '';
+      p.descripcion.horaFin = fin && hora() < fin ? fin : '';
+      p.descripcion.lugarTipo = ats.generales.ubicacionTipo || '';
+      p.descripcion.atsPersonal = (ats.personal || []).map(function (x) { return { nombre: x.nombre, dni: x.dni || '' }; });
+      p.autoRespuestas = {};
+      /* Todos los del ATS firmaron al registrarlo: se precarga y se controla al firmar el PETAR. */
+      if ((ats.personal || []).length && ats.personal.every(function (x) { return x.firma; })) {
+        p.requisitos.r_ats = 'si';
+        p.autoRespuestas['requisitos.r_ats'] = 'Precargado: todas las personas del ' + ats.numero + ' firmaron el ATS. Si se suma alguien que no lo firmó, el permiso no se podrá autorizar.';
+      }
+      if (p.tipos.caliente && p.descripcion.lugarTipo === 'abierta') {
+        p.caliente.c_lel = 'na';
+        p.autoRespuestas['caliente.c_lel'] = 'Marcado "No aplica": ' + (ats.generales.ubicacion || 'la ubicación') + ' es una bahía abierta, no un espacio cerrado. Cámbialo si las condiciones son otras.';
+      }
+      if (!p.autorizacion.ejecutante.nombre) p.autorizacion.ejecutante.nombre = usuario.nombre;
+      return p;
+    },
+
+    /* Emergencias del formato vigente más las que un documento anterior ya respondió (p. ej. Tsunami). */
+    emergenciasDe: function (d) {
+      var l = Modelo.configPetar(d).emergencias.slice();
+      Object.keys((d.emergencia && d.emergencia.emergencias) || {}).forEach(function (k) { if (l.indexOf(k) < 0 && d.emergencia.emergencias[k]) l.push(k); });
+      return l;
+    },
     atsCompatibleCarroceria: function (ats) {
       return !!(ats && ats.permisos && ats.permisos.caliente &&
         !Object.keys(ats.permisos).some(function (k) { return k !== 'caliente' && ats.permisos[k]; }));
@@ -310,11 +423,11 @@
 
     /* ------------------------ Pasos del formulario ------------------ */
     pasos: function (d) {
-      if (d.tipo === 'ATS') return [
+      if (d.tipo === 'ATS') return (Modelo.usaCatalogo(d) ? [{ id: 'tareas', titulo: 'Tareas del día' }] : []).concat([
         { id: 'generales', titulo: 'Datos de la tarea' },
         { id: 'pasos', titulo: 'Pasos, riesgos y controles' },
         { id: 'epp', titulo: 'EPP, herramientas y comentarios' }
-      ];
+      ]);
       var l = [
         { id: 'descripcion', titulo: 'Tarea y horario' },
         { id: 'epp', titulo: 'Equipos de protección' },
@@ -336,6 +449,11 @@
 
       if (d.tipo === 'ATS') {
         var g = d.generales;
+        if (id === 'tareas') {
+          req(g.puesto, 'Elige tu puesto.');
+          if (!(d.tareasCatalogo || []).length && !d.tareaLibre) e.push('Elige al menos una tarea o marca "Otra tarea".');
+          if (Modelo.requiereAltura18(d) && !d.alturaDesde18) e.push('Indica si el trabajo en zonas altas será desde 1,80 m.');
+        }
         if (id === 'generales') {
           req(g.tarea, 'Indica la tarea.');
           req(g.ubicacion, 'Indica la ubicación.');
@@ -372,9 +490,9 @@
         req(s.ejecutaNombre, 'Indica el área de Grupo Pana que ejecuta.');
         req(s.tarea, 'Describe la tarea.');
         req(s.lugar, 'Indica el lugar específico de la tarea.');
-        if (Modelo.esCarroceria(d) && (!d.tipos.caliente || Object.keys(d.tipos).some(function (k) { return k !== 'caliente' && d.tipos[k]; }))) e.push('Este PETAR cubre únicamente trabajo en caliente de carrocería.');
+        if (d.perfilPetar === 'carroceria-v1' && (!d.tipos.caliente || Object.keys(d.tipos).some(function (k) { return k !== 'caliente' && d.tipos[k]; }))) e.push('Este PETAR cubre únicamente trabajo en caliente de carrocería.');
         if (!Object.keys(d.tipos).some(function (k) { return d.tipos[k]; })) e.push('Marca al menos un tipo de trabajo.');
-        if (!s.capacitacion) e.push('Indica si se llevó a cabo la capacitación previa de los trabajadores.');
+        if (!Modelo.esBP(d) && !s.capacitacion) e.push('Indica si se llevó a cabo la capacitación previa de los trabajadores.');
       }
       if (id === 'epp') {
         if (!Object.keys(d.epp).some(function (k) { return d.epp[k]; })) e.push('Marca el EPP requerido.');
@@ -405,7 +523,7 @@
       }
       if (id === 'emergencia') {
         var m = d.emergencia;
-        Modelo.configPetar(d).emergencias.forEach(function (x) { if (['si', 'na'].indexOf(m.emergencias[x]) < 0) e.push('Responde la emergencia: ' + x + '.'); });
+        Modelo.emergenciasDe(d).forEach(function (x) { if (['si', 'na'].indexOf(m.emergencias[x]) < 0) e.push('Responde la emergencia: ' + x + '.'); });
         Modelo.configPetar(d).equiposEmergencia.forEach(function (x) { if (['si', 'na'].indexOf(m.equipos[x]) < 0) e.push('Responde el equipo de emergencia: ' + x + '.'); });
         if (Modelo.observados(d).length) req(d.observaciones, 'Describe las medidas o restricciones para los controles adicionales respondidos No.');
         req(m.encargadoSede, 'Indica el encargado de la sede.');
@@ -488,6 +606,13 @@
         if (!dniValido(x.dni)) e.push('DNI inválido o vacío de ' + n + ' (8 dígitos).');
         if (!x.firma) e.push('Falta la firma de ' + n + '.');
       });
+      if (Modelo.esBP(d) && d.descripcion.atsPersonal) {
+        var delAts = d.descripcion.atsPersonal;
+        d.participantes.forEach(function (x) {
+          var ok = delAts.some(function (y) { return (x.dni && y.dni && x.dni.trim() === y.dni.trim()) || (norm(x.nombre) && norm(x.nombre) === norm(y.nombre)); });
+          if (!ok) e.push((x.nombre || 'Un participante') + ' no firmó el ATS ' + d.descripcion.atsRef + ': debe participar en el ATS antes de trabajar con este permiso.');
+        });
+      }
       f(d.supervisorTrabajo, 'supervisor de trabajo (sección VII)');
       if (!dniValido(d.supervisorTrabajo.dni)) e.push('DNI inválido o vacío del supervisor de trabajo.');
       Modelo.normalizar(d);

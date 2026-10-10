@@ -1,5 +1,5 @@
 /* =====================================================================
-   CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v07.1
+   CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v08
    ATS y PETAR — configuración multisede, área B&P
    ---------------------------------------------------------------------
    Todo el contenido de los formatos vive aquí. Cambiar una pregunta,
@@ -26,7 +26,7 @@ window.SST_CONFIG = {
   sede: '',
   sedeCodigo: '',
   areaPorDefecto: 'Planchado y pintura (B&P)',
-  version: 'v07.4 (PETAR carrocería)',
+  version: 'v08 (ATS precargado B&P)',
 
   /* URL del flujo de Power Automate ("Cuando se recibe una solicitud HTTP").
      Vacía = la app funciona igual, pero no envía correo ni guarda en SharePoint. */
@@ -43,10 +43,11 @@ window.SST_CONFIG = {
     versionFormato: '01',
     titulo: 'ANÁLISIS DE TRABAJO SEGURO (ATS)',
     maxPersonal: 16,
-    maxPasos: 10,
+    maxPasos: 30,   /* v08: un ATS puede incluir varias tareas del catálogo */
     permisos: [
       { id: 'caliente',   label: 'Caliente' },
       { id: 'altura',     label: 'Altura' },
+      { id: 'peligrosos', label: 'Materiales peligrosos (no rutinario)' },
       { id: 'confinado',  label: 'Espacios confinados' },
       { id: 'electrico',  label: 'Trabajo eléctrico' },
       { id: 'excavacion', label: 'Excavación / zanjas' },
@@ -275,7 +276,10 @@ window.SST_CONFIG = {
     fotos: { maxPorEvidencia: 2, maxTotal: 8, anchoMaximoPx: 1024, miniaturaPx: 240, calidadJpeg: 0.65, calidadMiniatura: 0.58 },
 
     /* Sección VI — Protocolos de respuesta ante emergencia */
-    emergencias: ['Emergencias médicas', 'Incendio', 'Tsunami', 'Sismo', 'Derrame de materiales'],
+    /* v08: "Tsunami" retirado en todas las sedes (decisión del área, 10-10-2026). Los documentos
+       anteriores que lo respondieron lo conservan en el PDF. */
+    emergencias: ['Emergencias médicas', 'Incendio', 'Sismo', 'Derrame de materiales'],
+    horaFinTurno: '18:00',   /* hora final propuesta del PETAR (fin de turno); editable */
     equiposEmergencia: ['Botiquín de primeros auxilios', 'Camilla', 'Trípode para espacio confinado', 'Extintor', 'Equipos de comunicación para emergencias'],
 
     firmasAutorizacion: [
@@ -341,5 +345,23 @@ window.SST_CONFIG = {
     firmasAutorizacion: base.firmasAutorizacion.map(function (x) {
       return x.clave === 'supervisor' ? Object.assign({}, x, { ayuda: 'Supervisor o jefe responsable del trabajo de carrocería de Grupo Pana.' }) : x;
     })
+  });
+
+  /* v08 — PETAR B&P: un solo permiso por ATS con las secciones que exijan sus tareas
+     (caliente, altura desde 1,80 m y materiales peligrosos no rutinarios). Reutiliza las
+     preguntas de caliente de carrocería y las de altura y materiales peligrosos del formato.
+     La capacitación se verifica una sola vez en "Revisión antes de empezar". */
+  var car = C.petarCarroceria;
+  C.petarBP = Object.assign({}, car, {
+    titulo: 'PETAR — B&P (CARROCERÍA Y PINTURA)',
+    alcance: 'Permiso generado desde el ATS: incluye solo las secciones que exigen las tareas seleccionadas.',
+    tipos: [
+      { id: 'caliente', label: 'Trabajo en caliente', activo: true },
+      { id: 'altura', label: 'Trabajo en altura (desde 1,80 m)', activo: true },
+      { id: 'peligrosos', label: 'Materiales peligrosos (no rutinario)', activo: true }
+    ],
+    epp: base.epp,
+    sugerenciasEpp: base.sugerenciasEpp,
+    evidenciasPorTipo: { caliente: car.evidenciasPorTipo.caliente, altura: base.evidenciasPorTipo.altura, peligrosos: base.evidenciasPorTipo.peligrosos }
   });
 })(window.SST_CONFIG);

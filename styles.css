@@ -843,3 +843,14 @@ button[disabled].btn { opacity: .5; cursor: not-allowed; }
 .preg--compacta .preg__texto { margin: 0; font-size: .95rem; }
 .preg--compacta .seg { margin: 0; }
 .preg--compacta .seg__btn { min-height: 44px; padding: 8px; }
+
+/* v08 — selección de tareas del catálogo B&P */
+.lista-tareas { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.tarea-op { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; padding: 12px; min-height: 48px;
+  background: var(--blanco); border: 1px solid var(--linea); border-radius: var(--r-caja); color: var(--tinta); font: inherit; cursor: pointer; }
+.tarea-op.es-activo { border-color: var(--llama); box-shadow: inset 3px 0 0 var(--llama); }
+.tarea-op__check { flex: 0 0 22px; height: 22px; border: 2px solid var(--linea); border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: var(--blanco); }
+.tarea-op.es-activo .tarea-op__check { background: var(--llama); border-color: var(--llama); }
+.tarea-op__txt { flex: 1; line-height: 1.35; }
+.etq-petar { display: inline-block; margin: 6px 6px 0 0; padding: 2px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700;
+  color: var(--llama); background: #FCEDE7; border: 1px solid rgba(199, 65, 26, .35); white-space: normal; }

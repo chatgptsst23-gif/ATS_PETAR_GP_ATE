@@ -1,5 +1,23 @@
 # ATS y PETAR — Grupo Pana · Multisede
 
+## v08 · ATS precargado desde el catálogo de tareas B&P
+
+Objetivo: reducir el tiempo de llenado en campo (40–45 min medidos con la v07.4) sin quitar controles. El tiempo nuevo debe medirse en campo.
+
+- **ATS en 4 pasos:** *Tareas del día* → datos → pasos → EPP. El trabajador elige su **puesto** y una o varias **tareas** del catálogo (`catalogo_bp.js`, 22 tareas, derivado del IPERC B&P v03). La app precarga pasos, peligro → lesión, paso crítico, controles, responsable (quien lidera el ATS), EPP, herramientas y el texto de la tarea. Todo es editable; los pasos editados se conservan al cambiar tareas y los textos editados no se sobrescriben. Hay opción **Otra tarea** para trabajos fuera del catálogo.
+- **Permisos por tarea (reglas del área, 10-10-2026):** soldadura, esmerilado y spotter → PETAR caliente siempre; trabajo en techos o zonas altas → PETAR altura si es **desde 1,80 m** (criterio provisional); ingreso no rutinario al horno → PETAR materiales peligrosos. Los permisos exigidos por las tareas quedan marcados y no se pueden quitar. Se agregó el permiso *Materiales peligrosos (no rutinario)* al ATS.
+- **Ubicación:** en Ate se elige de una lista (Nivel 1 – Bahías 1 a 8 abiertas, Hornos 1 a 5) u *Otro lugar*. El tipo de ubicación se guarda en el ATS.
+- **Un solo PETAR por ATS** (perfil `bp-v1`) con las secciones que exigen sus tareas: caliente (preguntas de carrocería), altura y/o materiales peligrosos. Hereda fecha, tarea, lugar, área, personal (nombre y DNI), EPP y supervisor; el ejecutante es el usuario que lo crea (cada técnico llena su PETAR). Hora final propuesta: **18:00** (`petar.horaFinTurno`), editable.
+- **Respuestas precargadas con su motivo visible:** "¿El ATS se hizo con todos?" = Sí cuando todos los del ATS firmaron; la pregunta de espacio cerrado/LEL = N/A cuando la ubicación es una bahía abierta. Si se agrega al PETAR alguien que no firmó el ATS, no se puede autorizar.
+- **Capacitación:** se elimina la pregunta duplicada "¿Se llevó a cabo la capacitación previa…?" en el PETAR B&P; queda "personal calificado" en *Revisión antes de empezar*.
+- **Emergencias:** "Tsunami" retirado en todas las sedes. Los documentos anteriores que lo respondieron lo conservan en pantalla y PDF.
+- **PDF:** fila de puesto y tareas del catálogo en el ATS; las flechas y símbolos sin soporte en la fuente se convierten (→ como ->).
+- Los PETAR `carroceria-v1` y los formatos anteriores conservan su comportamiento.
+
+Pendiente de validación de SST: contenido del catálogo (`catalogo_tareas_bp_v01.xlsx`), criterio de 1,80 m, lista de ubicaciones de Ate y precargas de respuestas.
+
+Validación: `node tests/regresion.cjs`, `node tests/carroceria.cjs` y `node tests/v08.cjs`.
+
 ## v07.4 · PETAR de carrocería
 
 Los PETAR nuevos se enfocan en soldadura y esmerilado de vehículos o piezas de carrocería. El ATS continúa disponible para carrocería y pintura.
