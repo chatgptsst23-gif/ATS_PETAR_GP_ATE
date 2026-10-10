@@ -1,5 +1,21 @@
 # ATS y PETAR — Grupo Pana · Multisede
 
+## v07.4 · PETAR de carrocería
+
+Los PETAR nuevos se enfocan en soldadura y esmerilado de vehículos o piezas de carrocería. El ATS continúa disponible para carrocería y pintura.
+
+- Inicio, descripción, preguntas, EPP y PDF utilizan el perfil `carroceria-v1`. Se vinculan a un ATS registrado con trabajo en caliente; los ATS que también indican otros permisos requieren gestionar ese alcance por separado.
+- La pregunta general sobre paredes/techos se reemplaza por la revisión de ambas caras y cavidades de la pieza, tapizados, alfombras, espumas y protección del combustible. Se revisan los equipos reales, las bahías vecinas y el control de humos/polvo.
+- Se retiran del perfil nuevo los selectores de altura/químicos, la sugerencia de pintura, las preguntas específicas de oxicorte y el trípode para espacios confinados. Se conserva una pregunta condicional sobre cilindros de gas de soldadura, con N/A cuando no se utilizan.
+- No se copian respuestas de seguridad ni firmas. Los controles críticos nuevos con respuesta No bloquean la autorización; N/A solo se admite donde corresponde.
+- Los documentos anteriores conservan el perfil general. Los borradores anteriores muestran un aviso para crear un PETAR nuevo si se requiere el formato de carrocería; no se reinterpretan sus respuestas.
+- Esta corrección no establece exenciones por trabajo rutinario o bahía fija, ni define un tiempo de vigilancia posterior. El catálogo de tareas, el bloque específico de vehículos híbridos/eléctricos y los criterios de exigencia de permisos requieren desarrollo y validación adicionales con SST.
+- Los valores de 12 m, extintor PQS de 9 kg y la condición de LEL existente se conservan del formato configurado; no se presentan como exigencias legales nuevas ni como valores derivados de las referencias siguientes.
+
+Referencia técnica para adaptar el contenido a reparación vehicular: [HSE — Welding and flamecutting](https://www.hse.gov.uk/mvr/mechanical-repair/welding.htm). La guía no sustituye los procedimientos del fabricante ni los criterios internos aprobados.
+
+Validación: `node tests/regresion.cjs` y `node tests/carroceria.cjs`. Pruebas sin red ni datos reales, con compatibilidad de formularios/PDF anteriores.
+
 ## v07.3 · llenado guiado y EPP de B&P
 
 - ATS con cuatro opciones principales: gorro antigolpe, guantes, protección auditiva y respirador de media cara con filtro. Los demás EPP se detallan en **Otros EPP necesarios**.

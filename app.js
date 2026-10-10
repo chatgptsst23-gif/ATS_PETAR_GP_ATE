@@ -136,6 +136,7 @@
   }
 
   function preguntaGuiada(it, ruta, valor, escala, alerta) {
+    if (it.ayuda) return pregunta(it.label, ruta, valor, escala, marca(it.nivel), alerta, '<p class="ayuda">' + esc(it.ayuda) + '</p>');
     var ayuda = C.petar.ayudas[it.id];
     var extra = ayuda ? '<p class="ayuda">' + esc(ayuda[1]) + '</p><details class="ayuda-pregunta"><summary>Ver pregunta completa</summary><p>' + esc(it.label) + '</p></details>' : '';
     return pregunta(ayuda ? ayuda[0] : it.label, ruta, valor, escala, marca(it.nivel), alerta, extra);
@@ -337,7 +338,7 @@
           '<div class="alerta alerta--aviso">Envío a SST no configurado: los documentos se generan, pero no se envían por correo ni se guardan en SharePoint. <button class="enlace" data-accion="ir-ajustes">Configurar</button></div>') +
         '<div class="dos-botones">' +
           '<button class="btn-nuevo" data-accion="nuevo-ats"><span class="btn-nuevo__signo">+</span><span class="btn-nuevo__txt"><strong>Nuevo ATS</strong><small>Análisis de trabajo seguro</small></span></button>' +
-          '<button class="btn-nuevo btn-nuevo--petar" data-accion="nuevo-petar"><span class="btn-nuevo__signo">+</span><span class="btn-nuevo__txt"><strong>Nuevo PETAR</strong><small>Permiso de trabajo de alto riesgo</small></span></button>' +
+          '<button class="btn-nuevo btn-nuevo--petar" data-accion="nuevo-petar"><span class="btn-nuevo__signo">+</span><span class="btn-nuevo__txt"><strong>Nuevo PETAR</strong><small>Trabajo en caliente · carrocería</small></span></button>' +
         '</div>' +
         (vencidos.length ? '<div class="alerta alerta--mal">' + vencidos.length + ' PETAR superó su horario sin registrar el cierre.</div>' : '') +
         '<div class="cifras">' + cifra(petarVig.length, 'PETAR vigentes') + cifra(atsHoy.length, 'ATS de hoy') + cifra(pend.length, 'Envíos pendientes') + '</div>' +
@@ -382,13 +383,13 @@
 
   /* ======================= Pantalla: elegir ATS ===================== */
   function vElegirATS() {
-    var ats = st.lista.filter(esSedeActual).filter(function (d) { return d.tipo === 'ATS' && d.estado === 'REGISTRADO'; });
+    var ats = st.lista.filter(esSedeActual).filter(function (d) { return d.tipo === 'ATS' && d.estado === 'REGISTRADO' && M.atsCompatibleCarroceria(d); });
     app.innerHTML = '<section class="bloque">' +
-      '<p class="intro">El PETAR requiere un ATS registrado. Selecciona el ATS que corresponde al trabajo; se copiarán la tarea, el lugar y el personal.</p>' +
+      '<p class="intro">Este PETAR es exclusivo de soldadura y esmerilado de carrocería. Selecciona su ATS registrado con trabajo en caliente; se copiarán la tarea, el lugar y el personal.</p>' +
       (ats.length ? ats.slice(0, 10).map(function (d) {
         return '<button class="tarjeta" data-accion="petar-desde" data-id="' + esc(d.id) + '"><div class="tarjeta__fila"><strong>' + esc(d.numero) + '</strong>' + pastilla(d) + '</div>' +
           '<div class="tarjeta__meta">' + esc(d.generales.tarea) + '</div><div class="tarjeta__meta">' + esc(fecha(d.generales.fecha)) + ' · ' + d.personal.length + ' persona(s)</div></button>';
-      }).join('') : '<div class="alerta alerta--aviso"><strong>No hay ATS registrados.</strong><div>Primero registra el ATS del trabajo y luego genera el PETAR.</div></div>' +
+      }).join('') : '<div class="alerta alerta--aviso"><strong>No hay ATS compatibles.</strong><div>Registra el ATS de carrocería indicando trabajo en caliente. Los trabajos que requieren otros permisos deben gestionarse por separado.</div></div>' +
         '<button class="btn btn--principal btn--ancho" data-accion="nuevo-ats">Crear ATS</button>') +
       '</section>';
   }
@@ -398,10 +399,11 @@
     M.prepararCatalogoEpp(st.doc);
     M.normalizar(st.doc);
     var d = st.doc, pasos = M.pasos(d), id = pasos[st.paso].id;
+    var legado = d.tipo === 'PETAR' && !M.esCarroceria(d) ? '<div class="alerta alerta--aviso">Este borrador conserva el formato general anterior. Para usar el PETAR exclusivo de carrocería, crea uno nuevo desde el ATS correspondiente.</div>' : '';
     var cuerpo = d.tipo === 'ATS'
       ? { generales: fAtsGenerales, pasos: fAtsPasos, epp: fAtsEpp }[id](d)
       : { descripcion: fPDescripcion, epp: fPEpp, requisitos: fPRequisitos, caliente: fPCaliente, altura: fPAltura, peligrosos: fPPeligrosos, evidencias: fPEvidencias, emergencia: fPEmergencia }[id](d);
-    app.innerHTML =
+    app.innerHTML = legado +
       '<div class="progreso"><div class="progreso__puntos">' + pasos.map(function (p, i) {
         return '<span class="punto ' + (i < st.paso ? 'hecho' : i === st.paso ? 'actual' : '') + '"></span>';
       }).join('') + '</div><div class="progreso__txt">Paso ' + (st.paso + 1) + ' de ' + pasos.length + ' · ' + esc(pasos[st.paso].titulo) + '</div></div>' +
@@ -457,15 +459,15 @@
   function fPDescripcion(d) {
     var s = d.descripcion;
     return numeroFijo(d) +
-      '<div class="caja-info"><strong>' + esc(C.petar.validez) + '</strong></div>' +
+      '<div class="caja-info"><strong>' + esc(M.configPetar(d).validez) + '</strong></div>' +
       '<div class="par">' + campo('Fecha *', txt('descripcion.fecha', s.fecha, '', 'date')) + campo('Sede', '<input type="text" value="' + esc(s.sede) + '" disabled>') + '</div>' +
       '<div class="par">' + campo('Hora inicial *', txt('descripcion.horaInicio', s.horaInicio, '', 'time')) + campo('Hora final *', txt('descripcion.horaFin', s.horaFin, '', 'time')) + '</div>' +
       campo('ATS de referencia', '<input type="text" value="' + esc(s.atsRef) + '" disabled>', 'Vinculado al ATS registrado en este dispositivo.') +
-      campo('Área de Grupo Pana *', txt('descripcion.ejecutaNombre', s.ejecutaNombre, 'Ej. Planchado y pintura')) +
-      campo('Descripción de la tarea *', area('descripcion.tarea', s.tarea, 'Qué se hará, con qué equipo y sobre qué elemento', 3)) +
+      campo('Área de Grupo Pana *', txt('descripcion.ejecutaNombre', s.ejecutaNombre, M.esCarroceria(d) ? 'Carrocería / planchado' : 'Ej. Planchado y pintura')) +
+      campo('Descripción de la tarea *', area('descripcion.tarea', s.tarea, M.esCarroceria(d) ? 'Indica la soldadura o esmerilado, el vehículo (placa/OT) o pieza y el equipo utilizado.' : 'Qué se hará, con qué equipo y sobre qué elemento', 3)) +
       campo('Lugar específico de la tarea *', txt('descripcion.lugar', s.lugar, 'Ej. Bahía 3, lado norte')) +
-      '<label class="etiqueta">Tipo de trabajo *</label><div class="fichas">' +
-        C.petar.tipos.filter(function (t) { return t.activo || d.tipos[t.id]; }).map(function (t) { return ficha('toggle', 'tipos.' + t.id, d.tipos[t.id], t.label + (t.activo ? '' : ' · próx. versión'), !t.activo); }).join('') + '</div>' +
+      (M.esCarroceria(d) ? '<div class="caja-info"><strong>Trabajo en caliente de carrocería</strong><p>' + esc(M.configPetar(d).alcance) + '</p></div>' :
+        '<label class="etiqueta">Tipo de trabajo *</label><div class="fichas">' + M.configPetar(d).tipos.filter(function (t) { return t.activo || d.tipos[t.id]; }).map(function (t) { return ficha('toggle', 'tipos.' + t.id, d.tipos[t.id], t.label + (t.activo ? '' : ' · próx. versión'), !t.activo); }).join('') + '</div>') +
       pregunta('¿Se llevó a cabo la capacitación previa de los trabajadores que realizarán el trabajo? *', 'descripcion.capacitacion', s.capacitacion, ESC_SN,
         marca('critico'), s.capacitacion === 'no' ? ['mal', 'Sin capacitación previa el permiso no puede autorizarse.'] : null);
   }
@@ -473,8 +475,8 @@
   function fPEpp(d) {
     var pendiente = d.eppPendienteDetalle || {};
     return '<p class="intro">Selecciona el EPP que usarán en esta tarea. Puedes añadir una sugerencia y ajustarla.</p>' +
-      '<div class="fichas">' + Object.keys(C.petar.sugerenciasEpp).map(function (k) {
-        return '<button class="btn btn--fantasma" data-accion="sugerir-epp" data-perfil="' + k + '">Sugerir: ' + esc(C.petar.sugerenciasEpp[k].label) + '</button>';
+      '<div class="fichas">' + Object.keys(M.configPetar(d).sugerenciasEpp).map(function (k) {
+        return '<button class="btn btn--fantasma" data-accion="sugerir-epp" data-perfil="' + k + '">Sugerir: ' + esc(M.configPetar(d).sugerenciasEpp[k].label) + '</button>';
       }).join('') + '</div><p class="ayuda">Las sugerencias añaden opciones; no confirman que sean suficientes ni que estén en buen estado. Revisa la selección según la tarea, las hojas de seguridad y el equipo utilizado.</p>' +
       ((pendiente.guantes || pendiente.auditiva) ? '<p class="nota">El ATS indica ' + (pendiente.guantes ? 'guantes' : '') + (pendiente.guantes && pendiente.auditiva ? ' y ' : '') + (pendiente.auditiva ? 'protección auditiva' : '') + '. Elige aquí el tipo que corresponde.</p>' : '') +
       M.catalogoEpp(d, true).filter(function (g) {
@@ -488,7 +490,7 @@
 
   function fPRequisitos(d) {
     return '<p class="intro">Responde el supervisor responsable del trabajo. Un "No" impide autorizar el permiso.</p>' +
-      C.petar.requisitos.map(function (r) {
+      M.configPetar(d).requisitos.map(function (r) {
         var v = d.requisitos[r.id];
         return preguntaGuiada(r, 'requisitos.' + r.id, v, ESC_SN, v === 'no' ? ['mal', 'Corrige en campo antes de autorizar.'] : null);
       }).join('');
@@ -496,10 +498,10 @@
 
   function fPCaliente(d) {
     return '<p class="intro">Comprueba cada condición en el lugar de trabajo. N/A significa que esa condición no aplica a esta tarea.</p>' +
-      C.petar.caliente.map(function (r) { return preguntaV(d, 'caliente', r); }).join('') +
-      campo('Vigía de trabajo en caliente *', txt('vigias.caliente.nombre', d.vigias.caliente.nombre, 'Nombres y apellidos'), 'Firma de manera independiente en la pantalla de firmas.') +
+      M.configPetar(d).caliente.map(function (r) { return preguntaV(d, 'caliente', r); }).join('') +
+      campo('Vigía de trabajo en caliente *', txt('vigias.caliente.nombre', d.vigias.caliente.nombre, 'Nombres y apellidos'), 'Debe poder vigilar el punto de trabajo. No asignes a un ayudante que estará desarmando otra unidad. Firma en la pantalla de firmas.') +
       '<h2 class="h-seccion">Controles adicionales</h2>' +
-      C.petar.adicionales.map(function (r) {
+      M.configPetar(d).adicionales.map(function (r) {
         return pregunta(r.label, 'adicionales.' + r.id, d.adicionales[r.id], ESC_SNNA, marca(r.nivel));
       }).join('');
   }
@@ -550,10 +552,10 @@
     return '<p class="intro">Los contactos pueden completarse desde Área SST → Ajustes. Confirma que sigan vigentes; verifica las condiciones de emergencia en cada trabajo.</p>' + campo('Nombre del encargado de la sede *', txt('emergencia.encargadoSede', m.encargadoSede, '')) +
       campo('Nombre del supervisor o prevencionista *', txt('emergencia.supervisorPrevencionista', m.supervisorPrevencionista, '')) +
       '<h2 class="h-seccion">Posible emergencia detectada</h2>' +
-      C.petar.emergencias.map(function (x) { return preguntaCompacta(x, 'emergencia.emergencias.' + x, m.emergencias[x]); }).join('') +
+      M.configPetar(d).emergencias.map(function (x) { return preguntaCompacta(x, 'emergencia.emergencias.' + x, m.emergencias[x]); }).join('') +
       campo('Otros (indicar)', txt('emergencia.emergenciaOtro', m.emergenciaOtro, '')) +
       '<h2 class="h-seccion">Equipos de emergencia</h2>' +
-      C.petar.equiposEmergencia.map(function (x) { return preguntaCompacta(x, 'emergencia.equipos.' + x, m.equipos[x]); }).join('') +
+      M.configPetar(d).equiposEmergencia.map(function (x) { return preguntaCompacta(x, 'emergencia.equipos.' + x, m.equipos[x]); }).join('') +
       campo('Otros (indicar)', txt('emergencia.equipoOtro', m.equipoOtro, '')) +
       pregunta('¿Las rutas de acceso y salida están libres de obstáculos? *', 'emergencia.rutasLibres', m.rutasLibres, ESC_SN, marca('critico')) +
       pregunta('¿Se indicó a los trabajadores involucrados las rutas de evacuación y puntos de reunión en caso de emergencia? *', 'emergencia.rutasIndicadas', m.rutasIndicadas, ESC_SN, marca('critico')) +
@@ -606,7 +608,7 @@
         (d.tipos.caliente ? '<section class="bloque"><h2 class="h-seccion">Vigía · Trabajo en caliente</h2>' + firmaFija('vigias.caliente', d.vigias.caliente, false) + '</section>' : '') +
         (d.tipos.altura ? '<section class="bloque"><h2 class="h-seccion">Vigía · Trabajo en altura</h2>' + firmaFija('vigias.altura', d.vigias.altura, false) + '</section>' : '') +
         '<section class="bloque"><h2 class="h-seccion">Autorización del trabajo</h2>' +
-        C.petar.firmasAutorizacion.map(function (a) {
+        M.configPetar(d).firmasAutorizacion.map(function (a) {
           return '<h3 class="h-sub">' + esc(a.cargo) + '</h3>' + (a.ayuda ? '<p class="nota">' + esc(a.ayuda) + '</p>' : '') + firmaFija('autorizacion.' + a.clave, d.autorizacion[a.clave], false);
         }).join('') + '</section>' +
         '<section class="bloque acciones-finales"><button class="btn btn--principal btn--ancho" data-accion="autorizar">' + (C.modoPrueba ? 'Simular autorización del PETAR' : 'Autorizar PETAR y enviar a SST') + '</button>' +
@@ -672,7 +674,7 @@
     var acc = '<button class="btn btn--principal btn--ancho" data-accion="ver-pdf">Ver documento PDF</button>' +
       '<button class="btn btn--fantasma btn--ancho" data-accion="descargar-pdf">Descargar PDF</button>';
     if (d.estado !== 'BORRADOR') acc += '<button class="btn btn--fantasma btn--ancho" data-accion="reenviar">Reenviar a SST</button>';
-    if (d.tipo === 'ATS' && d.estado === 'REGISTRADO') acc += '<button class="btn btn--secundario btn--ancho" data-accion="petar-desde" data-id="' + esc(d.id) + '">Crear PETAR con este ATS</button>';
+    if (d.tipo === 'ATS' && d.estado === 'REGISTRADO' && M.atsCompatibleCarroceria(d)) acc += '<button class="btn btn--secundario btn--ancho" data-accion="petar-desde" data-id="' + esc(d.id) + '">Crear PETAR con este ATS</button>';
     if (d.tipo === 'PETAR' && e === 'AUTORIZADO') acc +=
       '<button class="btn btn--secundario btn--ancho" data-accion="ir-verificacion">Registrar verificación durante el trabajo</button>' +
       '<button class="btn btn--secundario btn--ancho" data-accion="ir-cierre">Cerrar permiso</button>' +
@@ -737,9 +739,9 @@
       f('Área de Grupo Pana', s.ejecutaNombre) + f('Tarea', s.tarea) + f('Lugar', s.lugar) + f('Tipo', M.tiposTexto(d)) +
       f('Capacitación previa', sn(s.capacitacion)) + '</div>' +
       tit('III. EPP', P.indexOf('epp')) + '<p class="parrafo">' + esc(M.catalogoEpp(d).reduce(function (a, g) { return a.concat(g.items.filter(function (it) { return d.epp[it.id]; }).map(function (it) { return it.label; })); }, []).concat(d.eppOtros ? [d.eppOtros] : []).join(', ') || '—') + '</p>' +
-      tit('IV. Requisitos de seguridad', P.indexOf('requisitos')) + lista(C.petar.requisitos, d.requisitos);
-    if (d.tipos.caliente) h += tit('V. Trabajo en caliente', P.indexOf('caliente')) + lista(C.petar.caliente, d.caliente) +
-      '<p class="nota">Controles adicionales:</p>' + lista(C.petar.adicionales, d.adicionales) + '<div class="datos">' + f('Vigía caliente', d.vigias && d.vigias.caliente ? d.vigias.caliente.nombre : '') + '</div>';
+      tit('IV. Requisitos de seguridad', P.indexOf('requisitos')) + lista(M.configPetar(d).requisitos, d.requisitos);
+    if (d.tipos.caliente) h += tit('V. Trabajo en caliente', P.indexOf('caliente')) + lista(M.configPetar(d).caliente, d.caliente) +
+      '<p class="nota">Controles adicionales:</p>' + lista(M.configPetar(d).adicionales, d.adicionales) + '<div class="datos">' + f('Vigía caliente', d.vigias && d.vigias.caliente ? d.vigias.caliente.nombre : '') + '</div>';
     if (d.tipos.altura) h += tit('V. Trabajo en altura', P.indexOf('altura')) + lista(C.petar.altura, d.altura) +
       (d.escaleras.usa === 'si' ? '<p class="nota">Uso de escaleras (bloque sugerido):</p>' + lista(C.petar.escaleras, d.escaleras) : '<div class="datos">' + f('Uso de escalera', sn(d.escaleras.usa)) + '</div>');
     if (d.tipos.peligrosos) h += tit('V. Materiales peligrosos', P.indexOf('peligrosos')) + '<div class="datos">' + f('Productos', d.quimicos.productos) +
@@ -751,7 +753,7 @@
       f('Rutas libres', sn(m.rutasLibres)) + f('Rutas indicadas', sn(m.rutasIndicadas)) + f('Contacto de emergencia', m.contacto + ' · ' + m.telefono) + '</div>';
     if (d.estado !== 'BORRADOR') {
       h += tit('Autorización', undefined) + '<div class="datos">' + f('Participantes', d.participantes.map(function (x) { return x.nombre; }).join(', ')) +
-        C.petar.firmasAutorizacion.map(function (a) { return f(a.cargo, d.autorizacion[a.clave].nombre); }).join('') + '</div>';
+        M.configPetar(d).firmasAutorizacion.map(function (a) { return f(a.cargo, d.autorizacion[a.clave].nombre); }).join('') + '</div>';
       if (d.verificaciones.length) h += tit('Verificaciones durante el trabajo') + '<div class="datos">' + d.verificaciones.map(function (v) { return f(UI.fechaHora(v.fechaHora) + ' · ' + v.cargo, v.nombre + (v.observaciones ? ' — ' + v.observaciones : '')); }).join('') + '</div>';
       if (d.cancelacion) h += '<div class="alerta alerta--mal"><strong>Cancelado:</strong> ' + esc(d.cancelacion.motivo) + (d.cancelacion.detalle ? ' — ' + esc(d.cancelacion.detalle) : '') + '</div>';
     }
@@ -776,7 +778,7 @@
     var d = st.doc;
     app.innerHTML = UI.listaErrores(st.errores.map(function (m) { return { mensaje: m }; })) + '<section class="bloque">' +
       '<p class="intro">El cierre confirma que el trabajo terminó y el área quedó en condiciones seguras. La fecha y la hora se registran con cada firma.</p>' +
-      C.petar.firmasAutorizacion.map(function (a) {
+      M.configPetar(d).firmasAutorizacion.map(function (a) {
         var x = d.cierre[a.clave];
         if (!x.nombre) x.nombre = d.autorizacion[a.clave].nombre;
         return '<h3 class="h-sub">' + esc(a.cargo) + '</h3>' + firmaFija('cierre.' + a.clave, x, false);
@@ -871,8 +873,9 @@
       avisoATSObligatorio();
       return Promise.resolve();
     }
+    if (tipo === 'PETAR' && !M.atsCompatibleCarroceria(ats)) { UI.aviso('Este PETAR es de carrocería y requiere un ATS con trabajo en caliente. Si hay otros permisos, deben gestionarse por separado.', 'mal'); return Promise.resolve(); }
     return window.Store.siguienteNumero(tipo).then(function (n) {
-      st.doc = tipo === 'ATS' ? M.nuevoATS(n, st.usuario) : M.nuevoPETAR(n, st.usuario, ats);
+      st.doc = tipo === 'ATS' ? M.nuevoATS(n, st.usuario) : M.nuevoPETARCarroceria(n, st.usuario, ats);
       M.aplicarContactos(st.doc, st.contactosPorSede[C.sedeCodigo]);
       if (tipo === 'PETAR') st.doc.evidenciasNoDisponibles = !window.Store.fotosSoportadas();
       return window.Store.guardar(st.doc);

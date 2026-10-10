@@ -26,7 +26,7 @@ window.SST_CONFIG = {
   sede: '',
   sedeCodigo: '',
   areaPorDefecto: 'Planchado y pintura (B&P)',
-  version: 'v07.3 (llenado guiado)',
+  version: 'v07.4 (PETAR carrocería)',
 
   /* URL del flujo de Power Automate ("Cuando se recibe una solicitud HTTP").
      Vacía = la app funciona igual, pero no envía correo ni guarda en SharePoint. */
@@ -298,3 +298,48 @@ window.SST_CONFIG = {
     CANCELADO:  { etiqueta: 'Cancelado',  tono: 'mal' }
   }
 };
+
+/* Perfil exclusivo para PETAR nuevos. El catálogo general se conserva para
+   interpretar documentos anteriores sin cambiar sus preguntas ni respuestas. */
+(function (C) {
+  var base = C.petar;
+  C.petarCarroceria = Object.assign({}, base, {
+    titulo: 'PETAR — TRABAJO EN CALIENTE DE CARROCERÍA',
+    alcance: 'Soldadura y esmerilado con amoladora o esmeril de banco, en vehículos o piezas de carrocería.',
+    tipos: [{ id: 'caliente', label: 'Trabajo en caliente de carrocería', activo: true }],
+    epp: base.epp.filter(function (g) { return !g.tipo; }),
+    sugerenciasEpp: { soldadura: base.sugerenciasEpp.soldadura, esmerilado: base.sugerenciasEpp.esmerilado },
+    requisitos: base.requisitos.map(function (it) {
+      if (it.id !== 'r_externos') return it;
+      return { id: 'r_externos', nivel: 'critico', label: '¿Las actividades de las bahías cercanas permiten trabajar sin exposición a chispas, humos o vapores inflamables?',
+        ayuda: 'Coordina con quienes desarman otras unidades. No debe haber manipulación de combustible, pintura o solventes expuesta a las chispas o al calor.' };
+    }),
+    caliente: base.caliente.map(function (it) {
+      if (it.id === 'c_paredes') return { id: 'c_carroceria', nivel: 'critico',
+        label: '¿Se revisaron ambas caras y las cavidades de la pieza, retirando o protegiendo los materiales combustibles?',
+        ayuda: 'Revisa tapizados, alfombras, plásticos, espumas y recubrimientos, también detrás y debajo de la zona. Protege las líneas y el depósito de combustible frente a chispas y calor; no basta con revisar la cara visible.' };
+      if (it.id === 'c_herramientas') return { id: it.id, nivel: 'critico',
+        label: '¿La soldadora, amoladora o esmeril de banco están revisados y con sus protecciones?',
+        ayuda: 'Según el equipo: cables y conexiones, puesta a tierra cuando corresponda, guardas, disco o muela compatible y sin daños, y apoyos del esmeril de banco. Revisa únicamente los equipos que se utilizarán.' };
+      if (it.id === 'c_biombos') return { id: it.id, nivel: 'critico',
+        label: '¿Los biombos y barreras protegen a las personas y las unidades cercanas?',
+        ayuda: 'Controla la dirección de las chispas y la radiación de soldadura, considerando al ayudante que trabaja en otra unidad.' };
+      return it;
+    }).concat([{ id: 'c_ventilacion', nivel: 'critico',
+      label: '¿Se controlan los humos y el polvo mediante ventilación o extracción adecuada?',
+      ayuda: 'Considera los humos de soldadura y de recubrimientos calentados, y el polvo del esmerilado. El respirador no reemplaza la extracción necesaria.' }]),
+    adicionales: [
+      { id: 'a_pisos', label: 'Piso de la zona de soldadura o esmerilado sin charcos ni humedad', nivel: 'requerido' },
+      { id: 'a_gas_soldadura', label: 'Si se utilizan cilindros de gas para soldadura: están sujetos, con válvulas, reguladores y conexiones en buen estado', nivel: 'critico', admiteNA: true },
+      { id: 'a_mesa', label: 'Pieza desmontada apoyada y sujeta de forma estable sobre banco o soporte incombustible', nivel: 'requerido' }
+    ],
+    equiposEmergencia: base.equiposEmergencia.filter(function (x) { return x !== 'Trípode para espacio confinado'; }),
+    evidenciasPorTipo: { caliente: [
+      { id: 'area', label: 'Vehículo o pieza y bahía protegidos', ayuda: 'Muestra la zona intervenida y la protección de materiales combustibles y unidades cercanas.' },
+      { id: 'control', label: 'Equipo y controles del trabajo en caliente', ayuda: 'Soldadora, amoladora o esmeril de banco que se utilizará; extintor y biombos disponibles.' }
+    ] },
+    firmasAutorizacion: base.firmasAutorizacion.map(function (x) {
+      return x.clave === 'supervisor' ? Object.assign({}, x, { ayuda: 'Supervisor o jefe responsable del trabajo de carrocería de Grupo Pana.' }) : x;
+    })
+  });
+})(window.SST_CONFIG);

@@ -33,7 +33,7 @@
   }
 
   Lienzo.prototype.cabecera = function (primera) {
-    var doc = this.doc, d = this.d, cfg = d.tipo === 'ATS' ? C.ats : C.petar;
+    var doc = this.doc, d = this.d, cfg = d.tipo === 'ATS' ? C.ats : window.Modelo.configPetar(d);
     var h = primera ? 20 : 13;
     doc.setDrawColor.apply(doc, LINEA); doc.setLineWidth(0.3);
     doc.rect(M, M, U, h);
@@ -325,10 +325,11 @@
     L.fila([['Área de Grupo Pana', s.ejecutaNombre, 1]]);
     L.fila([['Descripción de la tarea', s.tarea, 1]]);
     L.fila([['Lugar específico de la tarea', s.lugar, 1]]);
-    L.casillas(C.petar.tipos.map(function (t) { return [t.label, !!d.tipos[t.id]]; }), 4);
+    L.casillas(window.Modelo.configPetar(d).tipos.map(function (t) { return [t.label, !!d.tipos[t.id]]; }), 4);
     L.tabla([{ t: 'Pregunta', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
       [['¿Se llevó a cabo la capacitación previa de los trabajadores que realizarán el trabajo?', sn(s.capacitacion)]]);
-    L.nota('II. Monitoreo del ambiente de trabajo: aplica a espacios confinados y materiales peligrosos; no habilitado en esta versión.');
+    if (window.Modelo.esCarroceria(d)) L.nota(window.Modelo.configPetar(d).alcance);
+    else L.nota('II. Monitoreo del ambiente de trabajo: aplica a espacios confinados y materiales peligrosos; no habilitado en esta versión.');
     L.sep();
 
     L.banda('III. EQUIPOS DE PROTECCIÓN PERSONAL (EPP)');
@@ -343,15 +344,15 @@
 
     L.banda('IV. REQUISITOS DE SEGURIDAD (SUPERVISOR RESPONSABLE DEL TRABAJO)');
     L.tabla([{ t: 'Requisito', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
-      C.petar.requisitos.map(function (r) { return [r.label, sn(d.requisitos[r.id])]; }));
+      window.Modelo.configPetar(d).requisitos.map(function (r) { return [r.label, sn(d.requisitos[r.id])]; }));
     L.sep();
 
     if (d.tipos.caliente) {
       L.banda('V. TRABAJO DE ALTO RIESGO — TRABAJO EN CALIENTE (SUPERVISOR DEL TRABAJO)');
       L.tabla([{ t: 'Verificación', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
-        C.petar.caliente.map(function (r) { return [r.label, sn(d.caliente[r.id])]; }));
+        window.Modelo.configPetar(d).caliente.map(function (r) { return [r.label, sn(d.caliente[r.id])]; }));
       L.tabla([{ t: 'Control adicional', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
-        C.petar.adicionales.map(function (r) { return [r.label, sn(d.adicionales[r.id])]; }));
+        window.Modelo.configPetar(d).adicionales.map(function (r) { return [r.label, sn(d.adicionales[r.id])]; }));
       L.sep();
     }
 
@@ -394,9 +395,9 @@
     var m = d.emergencia;
     L.banda('VI. PROTOCOLOS DE RESPUESTA ANTE EMERGENCIA');
     L.fila([['Nombre del encargado de la sede', m.encargadoSede, 0.5], ['Nombre del supervisor o prevencionista', m.supervisorPrevencionista, 0.5]]);
-    var emer = C.petar.emergencias.map(function (x) { return [x, sn(m.emergencias[x])]; });
+    var emer = window.Modelo.configPetar(d).emergencias.map(function (x) { return [x, sn(m.emergencias[x])]; });
     if (m.emergenciaOtro) emer.push(['Otros: ' + m.emergenciaOtro, 'SÍ']);
-    var equi = C.petar.equiposEmergencia.map(function (x) { return [x, sn(m.equipos[x])]; });
+    var equi = window.Modelo.configPetar(d).equiposEmergencia.map(function (x) { return [x, sn(m.equipos[x])]; });
     if (m.equipoOtro) equi.push(['Otros: ' + m.equipoOtro, 'SÍ']);
     var nFilas = Math.max(emer.length, equi.length), filas = [];
     for (var i = 0; i < nFilas; i++) filas.push([(emer[i] || ['', ''])[0], (emer[i] || ['', ''])[1], (equi[i] || ['', ''])[0], (equi[i] || ['', ''])[1]]);
@@ -417,7 +418,7 @@
     L.sep();
 
     L.banda('AUTORIZACIÓN DEL TRABAJO');
-    L.firmas(C.petar.firmasAutorizacion.map(function (a) {
+    L.firmas(window.Modelo.configPetar(d).firmasAutorizacion.map(function (a) {
       var x = d.autorizacion[a.clave];
       return { titulo: a.cargo, nombre: x.nombre, detalle: x.fechaHora ? 'Hora: ' + horaDe(x.fechaHora) + ' · Firma inicio' : '', firma: x.firma };
     }), 3);
@@ -436,7 +437,7 @@
     if (d.cancelacion) {
       L.fila([['Permiso CANCELADO', d.cancelacion.motivo + (d.cancelacion.detalle ? ' — ' + d.cancelacion.detalle : ''), 0.7], ['Fecha y hora', fmtFH(d.cancelacion.fechaHora), 0.3]]);
     }
-    L.firmas(C.petar.firmasAutorizacion.map(function (a) {
+    L.firmas(window.Modelo.configPetar(d).firmasAutorizacion.map(function (a) {
       var x = d.cierre[a.clave];
       return { titulo: a.cargo, nombre: x.nombre, detalle: x.fechaHora ? 'Fecha y hora: ' + fmtFH(x.fechaHora) : 'Pendiente de cierre', firma: x.firma };
     }), 3);

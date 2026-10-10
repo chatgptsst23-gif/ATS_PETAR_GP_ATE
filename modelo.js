@@ -108,6 +108,21 @@
       return p;
     },
 
+    esCarroceria: function (d) { return !!d && d.tipo === 'PETAR' && d.perfilPetar === 'carroceria-v1'; },
+    configPetar: function (d) { return Modelo.esCarroceria(d) ? C.petarCarroceria : C.petar; },
+    atsCompatibleCarroceria: function (ats) {
+      return !!(ats && ats.permisos && ats.permisos.caliente &&
+        !Object.keys(ats.permisos).some(function (k) { return k !== 'caliente' && ats.permisos[k]; }));
+    },
+    nuevoPETARCarroceria: function (numero, usuario, ats) {
+      if (!Modelo.atsCompatibleCarroceria(ats)) throw new Error('Se requiere un ATS de trabajo en caliente. Los permisos adicionales se gestionan por separado.');
+      var p = Modelo.nuevoPETAR(numero, usuario, ats);
+      p.perfilPetar = 'carroceria-v1';
+      p.tipos = { caliente: true };
+      p.descripcion.ejecutaNombre = 'Carrocería / planchado';
+      return p;
+    },
+
     /* Copia al PETAR lo que ya se registró en el ATS (sin firmas) */
     vincularATS: function (p, ats) {
       p.descripcion.atsRef = ats.numero;
@@ -133,7 +148,7 @@
 
     /* Los documentos antiguos conservan los nombres de los EPP con que se firmaron. */
     catalogoEpp: function (d, formulario) {
-      var cfg = d.tipo === 'ATS' ? C.ats : C.petar;
+      var cfg = d.tipo === 'ATS' ? C.ats : Modelo.configPetar(d);
       if (d.catalogoEppVersion !== 2 && !formulario) return cfg.eppLegado;
       var lista = cfg.epp.slice();
       if (d.tipo === 'ATS') {
@@ -157,7 +172,7 @@
 
     sugerirEpp: function (d, perfil) {
       if (!d || d.tipo !== 'PETAR' || !Modelo.editable(d) || Modelo.tieneFirmas(d)) return;
-      var sugerencia = C.petar.sugerenciasEpp[perfil];
+      var sugerencia = Modelo.configPetar(d).sugerenciasEpp[perfil];
       if (!sugerencia) return;
       sugerencia.ids.forEach(function (id) { d.epp[id] = true; });
       // Solo sugiere equipos; nunca responde requisitos ni copia firmas.
@@ -252,7 +267,7 @@
       ['caliente', 'altura', 'peligrosos'].forEach(function (tipo) {
         if (seccion && seccion !== tipo) return;
         if (!d.tipos[tipo]) return;
-        (C.petar.evidenciasPorTipo[tipo] || []).forEach(function (it) {
+        (Modelo.configPetar(d).evidenciasPorTipo[tipo] || []).forEach(function (it) {
           r.push({ ruta: tipo + '.' + it.id, texto: it.label, ayuda: it.ayuda || '', seccion: tipo, id: it.id });
         });
       });
@@ -357,6 +372,7 @@
         req(s.ejecutaNombre, 'Indica el área de Grupo Pana que ejecuta.');
         req(s.tarea, 'Describe la tarea.');
         req(s.lugar, 'Indica el lugar específico de la tarea.');
+        if (Modelo.esCarroceria(d) && (!d.tipos.caliente || Object.keys(d.tipos).some(function (k) { return k !== 'caliente' && d.tipos[k]; }))) e.push('Este PETAR cubre únicamente trabajo en caliente de carrocería.');
         if (!Object.keys(d.tipos).some(function (k) { return d.tipos[k]; })) e.push('Marca al menos un tipo de trabajo.');
         if (!s.capacitacion) e.push('Indica si se llevó a cabo la capacitación previa de los trabajadores.');
       }
@@ -364,11 +380,11 @@
         if (!Object.keys(d.epp).some(function (k) { return d.epp[k]; })) e.push('Marca el EPP requerido.');
       }
       if (id === 'requisitos') {
-        C.petar.requisitos.forEach(function (r, i) { if (!d.requisitos[r.id]) e.push('Requisito ' + (i + 1) + ' sin responder.'); });
+        Modelo.configPetar(d).requisitos.forEach(function (r, i) { if (!d.requisitos[r.id]) e.push('Requisito ' + (i + 1) + ' sin responder.'); });
       }
       if (id === 'caliente') {
-        C.petar.caliente.forEach(function (r, i) { if (!d.caliente[r.id]) e.push('Trabajo en caliente, pregunta ' + (i + 1) + ' sin responder.'); });
-        C.petar.adicionales.forEach(function (r) { if (!d.adicionales[r.id]) e.push('Control adicional sin responder: ' + r.label + '.'); });
+        Modelo.configPetar(d).caliente.forEach(function (r, i) { if ((r.admiteNA ? ['si', 'no', 'na'] : ['si', 'no']).indexOf(d.caliente[r.id]) < 0) e.push('Trabajo en caliente, pregunta ' + (i + 1) + ' sin responder.'); });
+        Modelo.configPetar(d).adicionales.forEach(function (r) { if (!d.adicionales[r.id]) e.push('Control adicional sin responder: ' + r.label + '.'); });
         req(d.vigias.caliente.nombre, 'Indica el nombre del vigía de trabajo en caliente.');
       }
       if (id === 'altura') {
@@ -389,8 +405,8 @@
       }
       if (id === 'emergencia') {
         var m = d.emergencia;
-        C.petar.emergencias.forEach(function (x) { if (['si', 'na'].indexOf(m.emergencias[x]) < 0) e.push('Responde la emergencia: ' + x + '.'); });
-        C.petar.equiposEmergencia.forEach(function (x) { if (['si', 'na'].indexOf(m.equipos[x]) < 0) e.push('Responde el equipo de emergencia: ' + x + '.'); });
+        Modelo.configPetar(d).emergencias.forEach(function (x) { if (['si', 'na'].indexOf(m.emergencias[x]) < 0) e.push('Responde la emergencia: ' + x + '.'); });
+        Modelo.configPetar(d).equiposEmergencia.forEach(function (x) { if (['si', 'na'].indexOf(m.equipos[x]) < 0) e.push('Responde el equipo de emergencia: ' + x + '.'); });
         if (Modelo.observados(d).length) req(d.observaciones, 'Describe las medidas o restricciones para los controles adicionales respondidos No.');
         req(m.encargadoSede, 'Indica el encargado de la sede.');
         req(m.supervisorPrevencionista, 'Indica el supervisor o prevencionista.');
@@ -415,9 +431,10 @@
       var b = [];
       if (d.tipo !== 'PETAR') return b;
       if (d.descripcion.capacitacion === 'no') b.push('No se llevó a cabo la capacitación previa de los trabajadores.');
-      C.petar.requisitos.forEach(function (r) { if (d.requisitos[r.id] === 'no' && r.nivel === 'critico') b.push(r.label); });
+      Modelo.configPetar(d).requisitos.forEach(function (r) { if (d.requisitos[r.id] === 'no' && r.nivel === 'critico') b.push(r.label); });
       Modelo.normalizar(d);
-      if (d.tipos.caliente) C.petar.caliente.forEach(function (r) { if (d.caliente[r.id] === 'no' && r.nivel === 'critico') b.push(r.label); });
+      if (d.tipos.caliente) Modelo.configPetar(d).caliente.forEach(function (r) { if (d.caliente[r.id] === 'no' && r.nivel === 'critico') b.push(r.label); });
+      if (d.tipos.caliente) Modelo.configPetar(d).adicionales.forEach(function (r) { if (d.adicionales[r.id] === 'no' && r.nivel === 'critico') b.push(r.label); });
       if (d.tipos.altura) C.petar.altura.forEach(function (r) { if (d.altura[r.id] === 'no' && r.nivel === 'critico') b.push(r.label); });
       if (d.tipos.altura && d.escaleras.usa === 'si') C.petar.escaleras.forEach(function (r) { if (d.escaleras[r.id] === 'no' && r.nivel === 'critico') b.push(r.label); });
       if (d.tipos.peligrosos) C.petar.peligrosos.forEach(function (r) { if (d.peligrosos[r.id] === 'no' && r.nivel === 'critico') b.push(r.label); });
@@ -439,7 +456,7 @@
       if (d.tipo !== 'PETAR') return [];
       Modelo.normalizar(d);
       var o = [];
-      if (d.tipos.caliente) o = o.concat(C.petar.adicionales.filter(function (r) { return d.adicionales[r.id] === 'no'; }).map(function (r) { return r.label; }));
+      if (d.tipos.caliente) o = o.concat(Modelo.configPetar(d).adicionales.filter(function (r) { return d.adicionales[r.id] === 'no'; }).map(function (r) { return r.label; }));
       if (d.tipos.altura && d.escaleras.usa === 'si') o = o.concat(C.petar.escaleras.filter(function (r) { return r.nivel !== 'critico' && d.escaleras[r.id] === 'no'; }).map(function (r) { return r.label; }));
       return o;
     },
@@ -476,7 +493,7 @@
       Modelo.normalizar(d);
       if (d.tipos.caliente) f(d.vigias.caliente, 'vigía de trabajo en caliente');
       if (d.tipos.altura) f(d.vigias.altura, 'vigía de trabajo en altura');
-      C.petar.firmasAutorizacion.forEach(function (a) { f(d.autorizacion[a.clave], a.cargo.toLowerCase()); });
+      Modelo.configPetar(d).firmasAutorizacion.forEach(function (a) { f(d.autorizacion[a.clave], a.cargo.toLowerCase()); });
       var sup = (d.autorizacion.supervisor.nombre || '').trim().toLowerCase().replace(/\s+/g, ' ');
       var eje = (d.autorizacion.ejecutante.nombre || '').trim().toLowerCase().replace(/\s+/g, ' ');
       if (sup && sup === eje) e.push('El supervisor del trabajo no puede ser la misma persona que el ejecutante: la autorización debe ser independiente.');
@@ -485,7 +502,7 @@
 
     validarCierre: function (d) {
       var e = [];
-      C.petar.firmasAutorizacion.forEach(function (a) {
+      Modelo.configPetar(d).firmasAutorizacion.forEach(function (a) {
         var x = d.cierre[a.clave];
         if (!x.nombre || !x.nombre.trim()) e.push('Falta el nombre: ' + a.cargo + '.');
         if (!x.firma) e.push('Falta la firma: ' + a.cargo + '.');
@@ -501,7 +518,7 @@
     lugar: function (d) { return d.tipo === 'ATS' ? d.generales.ubicacion : d.descripcion.lugar; },
     etiquetaEstado: function (e) { return (C.estados[e] || { etiqueta: e }).etiqueta; },
     tiposTexto: function (p) {
-      return C.petar.tipos.filter(function (t) { return p.tipos[t.id]; }).map(function (t) { return t.label; }).join(', ');
+      return Modelo.configPetar(p).tipos.filter(function (t) { return p.tipos[t.id]; }).map(function (t) { return t.label; }).join(', ');
     },
 
     asuntoCorreo: function (d, momento) {
