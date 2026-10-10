@@ -834,3 +834,12 @@ button[disabled].btn { opacity: .5; cursor: not-allowed; }
 .ev-foto img[data-mini-foto] { background:#ECEDEF; }
 .modal--foto .modal__caja.foto-grande { max-width:min(92vw,760px); }
 .foto-grande img { display:block; max-width:100%; max-height:72vh; object-fit:contain; margin:0 auto 12px; border-radius:8px; }
+
+/* Preguntas compactas: todas conservan su respuesta individual. */
+.ayuda-pregunta { font-size: .88rem; margin-top: 8px; }
+.ayuda-pregunta summary { cursor: pointer; color: var(--frio); padding: 8px 0; }
+.ayuda-pregunta p { color: var(--gris); }
+.preg--compacta { display: grid; grid-template-columns: minmax(0, 1fr) 130px; align-items: center; gap: 12px; padding: 10px 0; }
+.preg--compacta .preg__texto { margin: 0; font-size: .95rem; }
+.preg--compacta .seg { margin: 0; }
+.preg--compacta .seg__btn { min-height: 44px; padding: 8px; }

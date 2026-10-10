@@ -26,7 +26,7 @@ window.SST_CONFIG = {
   sede: '',
   sedeCodigo: '',
   areaPorDefecto: 'Planchado y pintura (B&P)',
-  version: 'v07.2 (multisede)',
+  version: 'v07.3 (llenado guiado)',
 
   /* URL del flujo de Power Automate ("Cuando se recibe una solicitud HTTP").
      Vacía = la app funciona igual, pero no envía correo ni guarda en SharePoint. */
@@ -52,13 +52,19 @@ window.SST_CONFIG = {
       { id: 'excavacion', label: 'Excavación / zanjas' },
       { id: 'otro',       label: 'Otro' }
     ],
-    epp: [
+    eppLegado: [
       { id: 'basico',   label: 'Básico (casco y zapatos de seguridad)', fijo: true },
       { id: 'guantes',  label: 'Guantes' },
       { id: 'lentes',   label: 'Lentes de seguridad' },
       { id: 'auditiva', label: 'Protección auditiva' },
       { id: 'mameluco', label: 'Ropa de trabajo / mameluco' },
       { id: 'arnes',    label: 'Arnés de seguridad' }
+    ],
+    epp: [
+      { id: 'gorro_antigolpe', label: 'Gorro antigolpe' },
+      { id: 'guantes', label: 'Guantes' },
+      { id: 'auditiva', label: 'Protección auditiva' },
+      { id: 'resp_mediacara_filtro', label: 'Respirador de media cara con filtro' }
     ],
     pasosEjemplo: [
       { paso: 'Preparar el área y retirar materiales inflamables', evento: 'Incendio causado por chispas sobre material combustible', critico: 'si', medidas: 'Retirar o cubrir combustibles en radio de 12 m; extintor PQS en el punto; biombos', responsable: '' },
@@ -89,7 +95,7 @@ window.SST_CONFIG = {
     ],
 
     /* Sección III — EPP */
-    epp: [
+    eppLegado: [
       { grupo: 'Equipos básicos de protección personal', items: [
         { id: 'casco', label: 'Casco de seguridad', sugerido: true },
         { id: 'zapatos', label: 'Zapatos de seguridad', sugerido: true },
@@ -129,6 +135,56 @@ window.SST_CONFIG = {
       ]}
     ],
 
+    epp: [
+      { grupo: 'Cabeza, ojos y oído', items: [
+        { id: 'gorro_antigolpe', label: 'Gorro antigolpe' },
+        { id: 'lentes', label: 'Lentes de seguridad' },
+        { id: 'orejeras', label: 'Orejeras' },
+        { id: 'tapones', label: 'Tapones auditivos' }
+      ]},
+      { grupo: 'Protección respiratoria', items: [
+        { id: 'resp_mediacara_filtro', label: 'Respirador de media cara con filtro' }
+      ]},
+      { grupo: 'Guantes — selecciona los que corresponden', items: [
+        { id: 'guantes_cuero', label: 'Guantes de cuero' },
+        { id: 'guantes_g40', label: 'Guantes G40' },
+        { id: 'guantes_g60', label: 'Guantes G60' },
+        { id: 'guantes_g10', label: 'Guantes G10' },
+        { id: 'guantes_hyflex', label: 'Guantes Hyflex' }
+      ]},
+      { grupo: 'Soldadura y esmerilado', items: [
+        { id: 'careta_soldar', label: 'Careta de soldar' },
+        { id: 'careta_esmerilar', label: 'Careta para esmeril' },
+        { id: 'mandil_cuero', label: 'Mandil de cuero' },
+        { id: 'escarpines', label: 'Escarpines' }
+      ]},
+      { grupo: 'Trabajo en altura', tipo: 'altura', items: [
+        { id: 'arnes', label: 'Arnés' },
+        { id: 'linea_doble', label: 'Línea de anclaje doble' }
+      ]}
+    ],
+    sugerenciasEpp: {
+      soldadura: { label: 'Soldadura', ids: ['careta_soldar', 'guantes_cuero', 'mandil_cuero', 'escarpines', 'lentes'] },
+      esmerilado: { label: 'Esmerilado', ids: ['careta_esmerilar', 'lentes'] },
+      pintura: { label: 'Pintura / preparación', ids: ['resp_mediacara_filtro'] }
+    },
+    // Ayudas para el llenado; no modifican las preguntas ni respuestas del formato firmado.
+    ayudas: {
+      r_ats: ['¿Todos participaron en el ATS?', 'Revisen juntos los pasos y controles. Vincular un ATS no confirma por sí solo la participación.'],
+      r_calificadas: ['¿El personal está capacitado para esta tarea?', 'Comprueba la capacitación y autorización para el equipo que utilizará.'],
+      r_instruidas: ['¿Todos conocen los riesgos de este trabajo?', 'Explica los peligros y controles de la intervención concreta.'],
+      r_epp: ['¿Tienen el EPP necesario y en buen estado?', 'Revisa el equipo real; marcarlo en la lista no confirma su estado.'],
+      r_delimitada: ['¿El área está delimitada y protegida?', 'Evita que otras personas ingresen o reciban chispas y proyecciones.'],
+      r_equipos: ['¿Revisaron las herramientas y equipos?', 'Comprueba su estado antes de usarlos.'],
+      r_externos: ['¿El entorno permite trabajar con seguridad?', 'Revisa viento, lluvia y actividades cercanas que puedan interferir.'],
+      r_electricas: ['¿Las conexiones eléctricas son adecuadas?', 'Verifica cables, tomas y condiciones eléctricas según la tarea.'],
+      c_radio: ['¿Retiraron o protegieron los inflamables a 12 m?', 'Se conserva el criterio del formato vigente. Revisa también el vehículo y las zonas vecinas.'],
+      c_extintor: ['¿Hay un extintor PQS de al menos 9 kg?', 'Debe estar disponible y accesible en el punto de trabajo.'],
+      c_lel: ['En espacio cerrado: ¿LEL 0 % y ventilación?', 'Responde según la medición y verificación reales. N/A solo si esta condición no aplica; no por falta de medidor.'],
+      c_paredes: ['En paredes o techos: ¿sin material combustible?', 'Revisa ambos lados. Usa N/A únicamente si no se intervienen paredes o techos.'],
+      c_herramientas: ['¿Cables, guardas y puesta a tierra están bien?', 'Verifica los controles del equipo indicado en la pregunta completa.'],
+      c_biombos: ['¿Están instalados los biombos?', 'Comprueba la protección de las personas cercanas.']
+    },
     /* Sección IV — Requisitos de seguridad (supervisor responsable del trabajo) */
     requisitos: [
       { id: 'r_ats', label: '¿El ATS se ha realizado con la participación de todos los integrantes del trabajo?', nivel: 'critico' },
@@ -194,9 +250,9 @@ window.SST_CONFIG = {
 
     /* EPP que se marca automáticamente al activar un tipo de trabajo (se puede desmarcar). */
     eppPorTipo: {
-      caliente: ['auditiva', 'guantes_cuero', 'careta_soldar', 'lentes_oxicorte', 'guantes_soldar', 'mandil'],
+      caliente: [],
       altura: ['arnes', 'linea_doble'],
-      peligrosos: ['resp_media', 'filtro_vapores', 'guantes_quimicos', 'lentes_ventilacion']
+      peligrosos: []
     },
 
     /* Evidencias mínimas por tipo de trabajo. No se exige una foto por pregunta. */

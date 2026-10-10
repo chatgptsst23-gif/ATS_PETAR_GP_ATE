@@ -1,5 +1,5 @@
 /* =====================================================================
-   MODELO — window.Modelo · v07.2
+   MODELO — window.Modelo · v07.3
    Estructura, validación y estados del ATS y del PETAR.
    Lógica pura: no toca la interfaz ni el almacenamiento.
    ===================================================================== */
@@ -37,17 +37,17 @@
     nuevoATS: function (numero, usuario) {
       return {
         id: 'd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-        tipo: 'ATS', prueba: !!C.modoPrueba, numero: numero, estado: 'BORRADOR',
+        tipo: 'ATS', catalogoEppVersion: 2, prueba: !!C.modoPrueba, numero: numero, estado: 'BORRADOR',
         creadoEn: new Date().toISOString(), actualizadoEn: '',
         usuario: { nombre: usuario.nombre, cargo: usuario.cargo },
         generales: {
           tarea: '', ubicacion: '', areaContratista: C.areaPorDefecto, sede: C.sede,
           fecha: hoy(), hora: hora(), lideradoPor: usuario.nombre, supervisor: ''
         },
-        permisos: { caliente: true },
+        permisos: {},
         permisoOtro: '',
         pasos: [{ paso: '', evento: '', critico: '', medidas: '', responsable: '' }],
-        epp: { basico: true },
+        epp: {},
         otrosEpp: '', herramientas: '', comentarios: '',
         personal: [],
         supervisorFirma: firmante(),
@@ -59,8 +59,7 @@
     nuevoPETAR: function (numero, usuario, ats) {
       var epp = {}, tipos = {};
       C.petar.tipos.forEach(function (t) { tipos[t.id] = false; });
-      /* Solo el EPP básico nace marcado. El EPP específico se deriva del tipo de trabajo. */
-      (C.petar.epp[0] ? C.petar.epp[0].items : []).forEach(function (it) { if (it.sugerido) epp[it.id] = true; });
+      /* Sin selección básica obligatoria; se conserva la sugerencia existente para altura. */
       if (ats && ats.permisos) {
         if (ats.permisos.caliente) tipos.caliente = true;
         if (ats.permisos.altura) tipos.altura = true;
@@ -71,7 +70,7 @@
       });
       var p = {
         id: 'd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-        tipo: 'PETAR', prueba: !!C.modoPrueba, numero: numero, estado: 'BORRADOR',
+        tipo: 'PETAR', catalogoEppVersion: 2, prueba: !!C.modoPrueba, numero: numero, estado: 'BORRADOR',
         creadoEn: new Date().toISOString(), actualizadoEn: '',
         usuario: { nombre: usuario.nombre, cargo: usuario.cargo },
         descripcion: {
@@ -122,6 +121,61 @@
         p.participantes = (ats.personal || []).map(function (x) { return firmante({ nombre: x.nombre, dni: x.dni }); });
       }
       if (!p.supervisorTrabajo.nombre && ats.generales.supervisor) p.supervisorTrabajo.nombre = ats.generales.supervisor;
+      if (!p.autorizacion.supervisor.nombre) p.autorizacion.supervisor.nombre = ats.generales.supervisor || '';
+      ['gorro_antigolpe', 'resp_mediacara_filtro'].forEach(function (k) {
+        if (ats.epp && ats.epp[k]) p.epp[k] = true;
+      });
+      p.eppOtros = ats.otrosEpp || '';
+      p.eppPendienteDetalle = {
+        guantes: !!(ats.epp && ats.epp.guantes), auditiva: !!(ats.epp && ats.epp.auditiva)
+      };
+    },
+
+    /* Los documentos antiguos conservan los nombres de los EPP con que se firmaron. */
+    catalogoEpp: function (d, formulario) {
+      var cfg = d.tipo === 'ATS' ? C.ats : C.petar;
+      if (d.catalogoEppVersion !== 2 && !formulario) return cfg.eppLegado;
+      var lista = cfg.epp.slice();
+      if (d.tipo === 'ATS') {
+        var ids = lista.map(function (x) { return x.id; });
+        return lista.concat(cfg.eppLegado.filter(function (x) { return ids.indexOf(x.id) < 0 && d.epp[x.id]; }));
+      }
+      var actuales = [];
+      lista.forEach(function (g) { g.items.forEach(function (it) { actuales.push(it.id); }); });
+      var antiguos = [];
+      cfg.eppLegado.forEach(function (g) {
+        g.items.forEach(function (it) { if (actuales.indexOf(it.id) < 0 && d.epp[it.id]) antiguos.push(it); });
+      });
+      if (antiguos.length) lista.push({ grupo: 'EPP conservados del documento anterior — revisar', items: antiguos });
+      return lista;
+    },
+
+    prepararCatalogoEpp: function (d) {
+      if (d.estado !== 'BORRADOR' || Modelo.tieneFirmas(d)) return;
+      d.catalogoEppVersion = 2;
+    },
+
+    sugerirEpp: function (d, perfil) {
+      if (!d || d.tipo !== 'PETAR' || !Modelo.editable(d) || Modelo.tieneFirmas(d)) return;
+      var sugerencia = C.petar.sugerenciasEpp[perfil];
+      if (!sugerencia) return;
+      sugerencia.ids.forEach(function (id) { d.epp[id] = true; });
+      // Solo sugiere equipos; nunca responde requisitos ni copia firmas.
+    },
+
+    aplicarContactos: function (d, contactos) {
+      if (!d || d.estado !== 'BORRADOR' || Modelo.tieneFirmas(d)) return;
+      var c = contactos || {};
+      if (d.tipo === 'ATS') {
+        if (!d.generales.supervisor) d.generales.supervisor = c.supervisorTrabajo || '';
+        return;
+      }
+      if (!d.supervisorTrabajo.nombre) d.supervisorTrabajo.nombre = c.supervisorTrabajo || '';
+      if (!d.autorizacion.supervisor.nombre) d.autorizacion.supervisor.nombre = d.supervisorTrabajo.nombre;
+      if (!d.autorizacion.area.nombre) d.autorizacion.area.nombre = c.responsableArea || '';
+      ['encargadoSede', 'supervisorPrevencionista', 'telefono', 'contacto'].forEach(function (k) {
+        if (!d.emergencia[k]) d.emergencia[k] = c[k] || '';
+      });
     },
 
     /* ------------------------- Estados --------------------------- */
@@ -247,16 +301,16 @@
         { id: 'epp', titulo: 'EPP, herramientas y comentarios' }
       ];
       var l = [
-        { id: 'descripcion', titulo: 'I. Descripción del trabajo' },
-        { id: 'epp', titulo: 'III. Equipos de protección personal' },
-        { id: 'requisitos', titulo: 'IV. Requisitos de seguridad' }
+        { id: 'descripcion', titulo: 'Tarea y horario' },
+        { id: 'epp', titulo: 'Equipos de protección' },
+        { id: 'requisitos', titulo: 'Revisión antes de empezar' }
       ];
       Modelo.normalizar(d);
-      if (d.tipos.caliente) l.push({ id: 'caliente', titulo: 'V. Trabajo en caliente' });
-      if (d.tipos.altura) l.push({ id: 'altura', titulo: 'V. Trabajo en altura' });
-      if (d.tipos.peligrosos) l.push({ id: 'peligrosos', titulo: 'V. Materiales peligrosos (no rutinario)' });
+      if (d.tipos.caliente) l.push({ id: 'caliente', titulo: 'Trabajo en caliente' });
+      if (d.tipos.altura) l.push({ id: 'altura', titulo: 'Trabajo en altura' });
+      if (d.tipos.peligrosos) l.push({ id: 'peligrosos', titulo: 'Materiales peligrosos' });
       if (d.tipos.caliente || d.tipos.altura || d.tipos.peligrosos) l.push({ id: 'evidencias', titulo: 'Evidencias fotográficas' });
-      l.push({ id: 'emergencia', titulo: 'VI. Respuesta ante emergencias' });
+      l.push({ id: 'emergencia', titulo: 'Emergencias y contactos' });
       return l;
     },
 

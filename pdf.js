@@ -284,14 +284,14 @@
     L.tabla([
       { t: 'N°', w: 0.04, a: 'center' },
       { t: 'Secuencia de pasos básicos de la tarea ¿Qué vamos a hacer?', w: 0.22 },
-      { t: 'Evento indeseado (seguridad, salud o ambiental) causado por… ¿Qué podría ir mal?', w: 0.24 },
+      { t: d.catalogoEppVersion === 2 ? 'Peligro y riesgo para la persona: causa y posible lesión o daño a la salud' : 'Evento indeseado (seguridad, salud o ambiental) causado por… ¿Qué podría ir mal?', w: 0.24 },
       { t: '¿Crítico?', w: 0.08, a: 'center', b: true, color: colorSN },
       { t: 'Medidas de control ¿Qué podemos hacer al respecto?', w: 0.28 },
       { t: 'Responsable de implementar controles', w: 0.14 }
     ], d.pasos.map(function (p, i) { return [i + 1, p.paso, p.evento, sn(p.critico), p.medidas, p.responsable]; }));
     L.sep();
     L.banda('EPP Y HERRAMIENTAS');
-    L.casillas(C.ats.epp.map(function (e) { return [e.label, !!d.epp[e.id]]; }), 3);
+    L.casillas(window.Modelo.catalogoEpp(d).map(function (e) { return [e.label, !!d.epp[e.id]]; }), 3);
     L.fila([['Otros EPP', d.otrosEpp, 0.5], ['Herramientas', d.herramientas, 0.5]]);
     L.texto('Comentarios adicionales', d.comentarios);
     L.sep();
@@ -332,7 +332,7 @@
     L.sep();
 
     L.banda('III. EQUIPOS DE PROTECCIÓN PERSONAL (EPP)');
-    C.petar.epp.forEach(function (g) {
+    window.Modelo.catalogoEpp(d).forEach(function (g) {
       var marcados = g.items.filter(function (it) { return d.epp[it.id]; });
       if (!marcados.length) return;
       L.nota(g.grupo, TINTA);

@@ -1,4 +1,4 @@
-/* v07.2 — Ejecutar: node tests/regresion.cjs. No realiza solicitudes de red real. */
+/* v07.3 — Ejecutar: node tests/regresion.cjs. No realiza solicitudes de red real. */
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
@@ -30,7 +30,7 @@ const user={nombre:'Usuario Prueba',cargo:'Supervisor'};
 const respuesta=(status,obj)=>({status,ok:status>=200&&status<300,text:async()=>typeof obj==='string'?obj:JSON.stringify(obj)});
 const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CLAVE_FICTICIA_V06';};
 (async()=>{
-  assert.equal(C.flujoUrl,''); assert.equal(C.claveArea,''); assert.equal(C.modoPrueba,false); assert.equal(C.version,'v07.2 (multisede)');
+  assert.equal(C.flujoUrl,''); assert.equal(C.claveArea,''); assert.equal(C.modoPrueba,false); assert.equal(C.version,'v07.3 (llenado guiado)');
   assert.equal(C.sedes.map(s=>s.codigo+':'+s.nombre).join(','),'MON:Montero,SQO:Surquillo,SCO:Surco,SMG:San Miguel,CAL:Callao,ATE:Ate,MOQ:Moquegua,TAC:Tacna');
 
   const p=M.nuevoPETAR('PETAR-PRUEBA',user);
@@ -209,5 +209,48 @@ const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CL
   assert(fuenteDatos.includes("FOTOS = 'fotos'"));assert(fuenteDatos.includes('fotosSoportadas'));
   assert(fs.readFileSync(path.join(root,'modelo.js'),'utf8').includes('lideradoPor: usuario.nombre'));
 
-  console.log('OK: v07.2 multisede (ATS obligatorio + sede por dispositivo + trazabilidad por sede) y regresiones v07/v06/v05.');
+  /* v07.3: identidad y EPP sugeridos no equivalen a verificaciones ni firmas. */
+  const pintura=M.nuevoATS('ATS-PINTURA',user);
+  assert.equal(!!pintura.permisos.caliente,false);
+  assert.equal(C.ats.epp.map(e=>e.id).join(','),'gorro_antigolpe,guantes,auditiva,resp_mediacara_filtro');
+  const actuales=C.petar.epp.filter(g=>!g.tipo).flatMap(g=>g.items);
+  assert.equal(actuales.length,14);
+  assert(!actuales.some(e=>['casco','lentes_oxicorte','mandil'].includes(e.id)));
+  pintura.epp={gorro_antigolpe:true,guantes:true,auditiva:true,resp_mediacara_filtro:true};
+  pintura.otrosEpp='Lentes y calzado de seguridad';pintura.generales.supervisor='Supervisor Original';
+  pintura.personal=[M.firmante({nombre:'Operario Prueba',dni:'12345678',firma:JPG,fechaHora:'2026-01-01'})];
+  const pp=M.nuevoPETAR('PETAR-EPP',user,pintura);
+  assert.equal(pp.epp.gorro_antigolpe,true);assert.equal(pp.epp.resp_mediacara_filtro,true);
+  assert.equal(pp.eppOtros,pintura.otrosEpp);assert.equal(pp.eppPendienteDetalle.guantes,true);
+  assert(!pp.epp.guantes_g10);assert(!pp.epp.orejeras);assert(!pp.epp.tapones);
+  assert.equal(pp.participantes[0].firma,'');assert.equal(pp.participantes[0].fechaHora,'');
+  assert.equal(pp.autorizacion.supervisor.nombre,'Supervisor Original');
+  const seguridad=JSON.stringify([pp.requisitos,pp.caliente,pp.emergencia,pp.descripcion.capacitacion,pp.autorizacion]);
+  M.sugerirEpp(pp,'soldadura');
+  assert(pp.epp.careta_soldar&&pp.epp.guantes_cuero&&pp.epp.mandil_cuero&&pp.epp.escarpines);
+  assert.equal(JSON.stringify([pp.requisitos,pp.caliente,pp.emergencia,pp.descripcion.capacitacion,pp.autorizacion]),seguridad);
+  pp.epp.guantes_hyflex=true;M.sugerirEpp(pp,'esmerilado');assert(pp.epp.guantes_hyflex&&pp.epp.careta_esmerilar);
+  const contactos={supervisorTrabajo:'Supervisor Preferido',supervisorPrevencionista:'Prevencionista de emergencia',responsableArea:'Responsable Area',encargadoSede:'Encargado',telefono:'123456789',contacto:'Emergencias',rutasLibres:'si',firma:JPG};
+  M.aplicarContactos(pp,contactos);
+  assert.equal(pp.supervisorTrabajo.nombre,'Supervisor Original');
+  assert.equal(pp.emergencia.supervisorPrevencionista,'Prevencionista de emergencia');
+  assert.equal(pp.autorizacion.area.nombre,'Responsable Area');assert.equal(pp.emergencia.telefono,'123456789');
+  assert.equal(pp.emergencia.rutasLibres,'');assert.equal(pp.autorizacion.area.firma,'');
+  assert(M.validarPaso(pp,'requisitos').length>0);
+  pp.requisitos.r_epp='no';assert(M.bloqueos(pp).some(x=>x.includes('EPP')));
+  pp.estado='AUTORIZADO';const firmado=JSON.stringify(pp);M.sugerirEpp(pp,'pintura');M.aplicarContactos(pp,{telefono:'999'});M.prepararCatalogoEpp(pp);assert.equal(JSON.stringify(pp),firmado);
+
+  const previo=M.nuevoPETAR('PETAR-LEGADO-EPP',user);delete previo.catalogoEppVersion;
+  previo.epp={casco:true,mandil:true,filtro_vapores:true};previo.estado='AUTORIZADO';
+  const contenidoPrevio=JSON.stringify(previo);M.prepararCatalogoEpp(previo);
+  assert.equal(JSON.stringify(previo),contenidoPrevio);
+  assert(M.catalogoEpp(previo).flatMap(g=>g.items).some(e=>e.id==='mandil'&&e.label==='Máscara, mandil y escarpines'));
+  previo.estado='BORRADOR';M.prepararCatalogoEpp(previo);
+  assert.equal(previo.catalogoEppVersion,2);
+  assert(M.catalogoEpp(previo).flatMap(g=>g.items).some(e=>e.id==='mandil'));
+  assert(M.catalogoEpp(previo).flatMap(g=>g.items).some(e=>e.id==='guantes_g40'));
+  const pdfEpp=w.DocPDF.generar(pp).output();
+  const contenidoEpp=Array.from(pdfEpp.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)).map(m=>{try{return require('node:zlib').inflateSync(Buffer.from(m[1],'binary')).toString('latin1')}catch(e){return m[1]}}).join('\n');
+  assert(contenidoEpp.includes('Mandil de cuero'));assert(contenidoEpp.includes('Escarpines'));assert(!contenidoEpp.includes('Casco de seguridad'));
+  console.log('OK: v07.3 (EPP, legado, sugerencias seguras, contactos) + regresiones multisede/v07/v06/v05.');
 })().catch(e=>{console.error(e);process.exitCode=1});

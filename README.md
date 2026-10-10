@@ -1,6 +1,21 @@
 # ATS y PETAR — Grupo Pana · Multisede
 
-## v07.2 · multisede
+## v07.3 · llenado guiado y EPP de B&P
+
+- ATS con cuatro opciones principales: gorro antigolpe, guantes, protección auditiva y respirador de media cara con filtro. Los demás EPP se detallan en **Otros EPP necesarios**.
+- PETAR con 14 EPP de carrocería y pintura, guantes por modelo y orejeras/tapones separados. Los equipos de altura se muestran cuando aplica ese tipo.
+- Sugerencias aditivas con un toque para soldadura, esmerilado y pintura/preparación. Son ayudas editables, no una certificación de suficiencia ni del estado del EPP. No se asigna un guante químico ni un filtro específico automáticamente.
+- El ATS nuevo ya no marca trabajo en caliente por defecto. El PETAR hereda los permisos compatibles, los EPP coincidentes, el texto de otros EPP y los nombres del supervisor desde su ATS. Las firmas se realizan nuevamente.
+- Preguntas de seguridad con un título corto, ayuda y acceso a la pregunta completa vigente. Se conservan sus controles, validaciones y criterios originales.
+- El ATS pregunta por **peligro y riesgo para la persona**, con ejemplos que relacionan causa y lesión; el PDF nuevo usa el mismo enfoque.
+- **Área SST → Ajustes → Datos repetidos** permite guardar seis datos de responsables/contactos por sede y dispositivo. Solo se completan campos vacíos en documentos nuevos; nunca respuestas Sí/No/N/A ni firmas. Cambiar de sede utiliza sus propios datos.
+- Emergencias con opciones compactas y navegación con títulos simples; no se muestran tipos de permiso inactivos.
+- Los documentos anteriores conservan su catálogo de EPP al generar el PDF. Al editar un borrador sin firmas se habilita el catálogo nuevo, conservando los EPP anteriores seleccionados para revisarlos explícitamente.
+- Actualización de caché a v07.3. Tras abrir la web con conexión, cerrar y volver a abrir si aún aparece v07.2. **No borrar los datos del navegador**, porque ahí están los documentos locales.
+
+La validez, el alcance, las firmas, las fotos exigidas y la autorización del PETAR no se amplían con esta actualización. El tiempo de llenado debe medirse en campo; no se promete una duración determinada.
+
+## v07.2 · multisede (base operativa)
 
 Versión operativa que integra las funciones v07, el acceso separado de **Usuario / Área SST**, evidencias fotográficas optimizadas para celulares y operación multisede.
 
