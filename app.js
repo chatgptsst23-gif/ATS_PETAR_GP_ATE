@@ -1,5 +1,5 @@
 /* =====================================================================
-   APLICACIÓN — Grupo Pana · Gestión Digital SST · v09
+   APLICACIÓN — Grupo Pana · Gestión Digital SST · v10
    ATS y PETAR de trabajos de alto riesgo. Pantallas, navegación y acciones.
    ===================================================================== */
 (function () {
@@ -664,7 +664,10 @@
         '<div class="datos">' + d.participantes.map(function (x) { return '<div class="dato"><span>' + esc(x.dni ? 'DNI ' + x.dni : 'Sin DNI') + '</span><strong>' + esc(x.nombre) + '</strong></div>'; }).join('') + '</div></section>' +
         '<section class="bloque"><h2 class="h-seccion">Autorización del trabajo</h2>' +
         M.configPetar(d).firmasAutorizacion.map(function (a) {
-          return '<h3 class="h-sub">' + esc(a.cargo) + '</h3>' + (a.ayuda ? '<p class="nota">' + esc(a.ayuda) + '</p>' : '') + firmaFija('autorizacion.' + a.clave, d.autorizacion[a.clave], false);
+          var x = d.autorizacion[a.clave], fa = M.firmaATSPara(d, a.clave);
+          var usar = fa && !x.origenFirma ? '<button class="btn btn--secundario btn--ancho" data-accion="firma-ats" data-clave="' + a.clave + '">Usar mi firma del ATS (' + esc(fa.nombre) + ')</button>' : '';
+          var nota = x.origenFirma && x.firma ? '<div class="alerta alerta--ok">Firma tomada del ATS ' + esc(x.origenFirma.ats) + ', confirmada por ' + esc(x.origenFirma.nombre) + ' el ' + esc(UI.fechaHora(x.origenFirma.confirmada)) + '. Si dibujas o borras, se reemplaza.</div>' : '';
+          return '<h3 class="h-sub">' + esc(a.cargo) + '</h3>' + (a.ayuda ? '<p class="nota">' + esc(a.ayuda) + '</p>' : '') + firmaFija('autorizacion.' + a.clave, x, false) + usar + nota;
         }).join('') + '</section>' +
         '<section class="bloque acciones-finales"><button class="btn btn--principal btn--ancho" data-accion="autorizar">' + (C.modoPrueba ? 'Simular autorización del PETAR' : 'Autorizar PETAR y enviar a SST') + '</button>' +
         '<button class="btn btn--secundario btn--ancho" data-accion="guardar-salir">Guardar y salir</button></section>';
@@ -732,7 +735,8 @@
       pad.alTerminar = function (data) {
         var o = getPath(st.doc, ruta);
         o.firma = data; o.fechaHora = data ? new Date().toISOString() : '';
-        guardarLuego();
+        if (o.origenFirma) delete o.origenFirma; /* v10: dibujar o borrar reemplaza la firma tomada del ATS */
+        guardarLuego(); if (st.doc && M.opcion(st.doc, 'firmaDesdeATS') && ruta.indexOf('autorizacion.') === 0) quieto();
       };
     });
   }
@@ -1077,6 +1081,14 @@
         var pad = st.pads[b.dataset.firma];
         if (pad) pad.limpiar();
         break;
+      case 'firma-ats':
+        var claveF = b.dataset.clave, fATS = M.firmaATSPara(d, claveF);
+        if (!fATS) { UI.aviso('No hay una firma del ATS para ese nombre.', 'mal'); break; }
+        UI.confirmar({ titulo: 'Usar la firma del ATS', texto: '¿Eres ' + fATS.nombre + '? Se usará la firma que dejaste en el ' + d.descripcion.atsRef + ' para autorizar este PETAR con las condiciones revisadas ahora. Quedará registrado en el PDF.', aceptar: 'Sí, soy yo: usar mi firma' }).then(function (ok) {
+          if (!ok) return;
+          M.usarFirmaATS(d, claveF); guardarLuego(); quieto();
+        });
+        break;
       case 'agregar-firmante': agregarFirmante(b.dataset.dni === '1'); break;
       case 'firmar-pendiente':
         var lst = d[b.dataset.ruta], idx = Number(b.dataset.i);
@@ -1260,6 +1272,14 @@
     if (el.dataset.campo === 'generales.ubicacionSel') { M.aplicarUbicacion(st.doc, el.value); guardarLuego(); quieto(); return; }
     setPath(st.doc, el.dataset.campo, el.value);
     guardarLuego();
+    /* v10: al cambiar el nombre de quien autoriza, se muestra u oculta "Usar mi firma del ATS". */
+    if (ev.type === 'change' && st.pantalla === 'firmas' && /^autorizacion\.[a-z]+\.nombre$/.test(el.dataset.campo) && M.opcion(st.doc, 'firmaDesdeATS')) {
+      /* Solo se redibuja si cambia la disponibilidad del botón, y después del toque en curso. */
+      var claveN = el.dataset.campo.split('.')[1], x = st.doc.autorizacion[claveN];
+      var tiene = !!app.querySelector('[data-accion="firma-ats"][data-clave="' + claveN + '"]');
+      var debe = !!(M.firmaATSPara(st.doc, claveN) && !x.origenFirma);
+      if (tiene !== debe) setTimeout(quieto, 200);
+    }
     if (el.dataset.campo === 'descripcion.atsRef') st.doc.descripcion.atsId = '';
   }
 

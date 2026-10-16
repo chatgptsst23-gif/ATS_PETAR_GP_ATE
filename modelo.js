@@ -1,5 +1,5 @@
 /* =====================================================================
-   MODELO — window.Modelo · v09
+   MODELO — window.Modelo · v10
    Estructura, validación y estados del ATS y del PETAR.
    Lógica pura: no toca la interfaz ni el almacenamiento.
    ===================================================================== */
@@ -9,7 +9,7 @@
   var C = window.SST_CONFIG;
   function CAT() { return window.SST_CATALOGO || { tareas: [], puestos: [], ubicacionesPorSede: {} }; }
   function tareaCat(codigo) { return CAT().tareas.find(function (t) { return t.codigo === codigo; }) || null; }
-  function norm(t) { return String(t || '').trim().toLowerCase().replace(/\s+/g, ' '); }
+  function norm(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' '); }
 
   function hoy() {
     var d = new Date();
@@ -211,6 +211,9 @@
       p.descripcion.horaFin = fin && hora() < fin ? fin : '';
       p.descripcion.lugarTipo = ats.generales.ubicacionTipo || '';
       p.descripcion.atsPersonal = (ats.personal || []).map(function (x) { return { nombre: x.nombre, dni: x.dni || '' }; });
+      /* v10: firmas registradas en el ATS, para reutilizarlas solo con confirmación expresa. */
+      p.firmasATS = (ats.personal || []).filter(function (x) { return x.firma; }).map(function (x) { return { nombre: x.nombre, dni: x.dni || '', firma: x.firma, rol: 'personal' }; });
+      if (ats.supervisorFirma && ats.supervisorFirma.firma) p.firmasATS.push({ nombre: ats.supervisorFirma.nombre || ats.generales.supervisor || '', dni: ats.supervisorFirma.dni || '', firma: ats.supervisorFirma.firma, rol: 'supervisor' });
       p.autoRespuestas = {};
       /* Todos los del ATS firmaron al registrarlo: se precarga y se controla al firmar el PETAR. */
       if ((ats.personal || []).length && ats.personal.every(function (x) { return x.firma; })) {
@@ -223,6 +226,22 @@
       }
       if (!p.autorizacion.ejecutante.nombre) p.autorizacion.ejecutante.nombre = usuario.nombre;
       return p;
+    },
+
+    /* v10: firma del ATS disponible para una firma de autorización (por nombre de quien firma). */
+    firmaATSPara: function (d, clave) {
+      if (!d || d.tipo !== 'PETAR' || (Modelo.configPetar(d).firmaDesdeATS || []).indexOf(clave) < 0) return null;
+      var nom = norm(d.autorizacion[clave] && d.autorizacion[clave].nombre);
+      if (!nom) return null;
+      return (d.firmasATS || []).find(function (x) { return norm(x.nombre) === nom; }) || null;
+    },
+    usarFirmaATS: function (d, clave) {
+      var f = Modelo.firmaATSPara(d, clave);
+      if (!f || !Modelo.editable(d)) return false;
+      var o = d.autorizacion[clave];
+      o.firma = f.firma; o.fechaHora = new Date().toISOString();
+      o.origenFirma = { ats: d.descripcion.atsRef, nombre: f.nombre, confirmada: o.fechaHora };
+      return true;
     },
 
     /* Emergencias del formato vigente más las que un documento anterior ya respondió (p. ej. Tsunami). */
@@ -345,7 +364,7 @@
     },
 
     limpiarFirmas: function (d) {
-      function l(f) { f.firma = ''; f.fechaHora = ''; }
+      function l(f) { f.firma = ''; f.fechaHora = ''; delete f.origenFirma; }
       if (d.tipo === 'ATS') { d.personal.forEach(l); l(d.supervisorFirma); return; }
       Modelo.normalizar(d); d.participantes.forEach(l); l(d.supervisorTrabajo); l(d.vigias.caliente); l(d.vigias.altura); if (d.vigia) l(d.vigia);
       ['supervisor', 'area', 'ejecutante'].forEach(function (k) { l(d.autorizacion[k]); });
@@ -634,6 +653,11 @@
         if (d.tipos.altura) f(d.vigias.altura, 'vigía de trabajo en altura');
       }
       Modelo.configPetar(d).firmasAutorizacion.forEach(function (a) { f(d.autorizacion[a.clave], a.cargo.toLowerCase()); });
+      /* v10: una firma tomada del ATS solo vale para la misma persona que la firmó. */
+      Object.keys(d.autorizacion).forEach(function (k) {
+        var x = d.autorizacion[k];
+        if (x && x.firma && x.origenFirma && norm(x.origenFirma.nombre) !== norm(x.nombre)) e.push('La firma de ' + k + ' se tomó del ATS de ' + x.origenFirma.nombre + ' y no corresponde a ' + (x.nombre || 'la persona indicada') + ': vuelve a firmar.');
+      });
       var sup = (d.autorizacion.supervisor.nombre || '').trim().toLowerCase().replace(/\s+/g, ' ');
       var eje = (d.autorizacion.ejecutante.nombre || '').trim().toLowerCase().replace(/\s+/g, ' ');
       if (sup && sup === eje) e.push('El supervisor del trabajo no puede ser la misma persona que el ejecutante: la autorización debe ser independiente.');

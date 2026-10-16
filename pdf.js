@@ -439,7 +439,8 @@
     L.banda('AUTORIZACIÓN DEL TRABAJO');
     L.firmas(window.Modelo.configPetar(d).firmasAutorizacion.map(function (a) {
       var x = d.autorizacion[a.clave];
-      return { titulo: a.cargo, nombre: x.nombre, detalle: x.fechaHora ? 'Hora: ' + horaDe(x.fechaHora) + ' · Firma inicio' : '', firma: x.firma };
+      return { titulo: a.cargo, nombre: x.nombre, detalle: (x.fechaHora ? 'Hora: ' + horaDe(x.fechaHora) + ' · Firma inicio' : '') +
+        (x.origenFirma && x.firma ? ' · Firma del ' + x.origenFirma.ats + ' confirmada ' + fmtFH(x.origenFirma.confirmada) : ''), firma: x.firma };
     }), 3);
     L.nota('Nota: el supervisor del trabajo es responsable de revisar la calidad del PETAR.');
     L.sep();

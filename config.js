@@ -1,5 +1,5 @@
 /* =====================================================================
-   CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v09
+   CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v10
    ATS y PETAR — configuración multisede, área B&P
    ---------------------------------------------------------------------
    Todo el contenido de los formatos vive aquí. Cambiar una pregunta,
@@ -26,7 +26,7 @@ window.SST_CONFIG = {
   sede: '',
   sedeCodigo: '',
   areaPorDefecto: 'Planchado y pintura (B&P)',
-  version: 'v09 (PETAR B&P simplificado)',
+  version: 'v10 (firma del ATS en la autorización)',
 
   /* URL del flujo de Power Automate ("Cuando se recibe una solicitud HTTP").
      Vacía = la app funciona igual, pero no envía correo ni guarda en SharePoint. */
@@ -373,6 +373,9 @@ window.SST_CONFIG = {
   function literal(id, label, extra) { return Object.assign({ id: id, label: label, nivel: 'critico', textoLiteral: true }, extra || {}); }
   C.petarBP2 = Object.assign({}, C.petarBP, {
     sinVigias: true, sinMonitoreo: true, sinFotos: true, soloAutorizacion: true,
+    /* v10: el supervisor y el ejecutante pueden usar la firma que dejaron en el ATS,
+       solo con un toque y confirmación en el momento de autorizar. */
+    firmaDesdeATS: ['supervisor', 'ejecutante'],
     requisitos: [
       literal('r_ats', '¿Se ha realizado el ATS con la participación de todos los integrantes de trabajo?'),
       literal('r_calificadas', 'Las personas que efectúan el trabajo, ¿se encuentran calificadas para desarrollar este tipo de labores?'),

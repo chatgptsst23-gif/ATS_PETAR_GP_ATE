@@ -1,5 +1,15 @@
 # ATS y PETAR — Grupo Pana · Multisede
 
+## v10 · Firma del ATS en la autorización del PETAR
+
+- En la autorización del PETAR B&P (`bp-v2`), el **supervisor del trabajo** y el **ejecutante** pueden tocar **"Usar mi firma del ATS"** si firmaron el ATS vinculado (se compara el nombre, sin distinguir mayúsculas ni tildes). Antes de aplicarla, la persona confirma que es ella; el **responsable del área** firma a mano.
+- La firma no se copia sola: solo con el toque y la confirmación en el momento de autorizar, después de revisar las condiciones del PETAR.
+- El PDF registra "Firma del ATS … confirmada [fecha y hora]". Si se dibuja o se borra encima, o se edita el documento, la firma tomada del ATS se reemplaza o se borra. Si se cambia el nombre, la app exige firmar de nuevo.
+- Los nombres siguen precargándose desde el ATS (supervisor) y desde el usuario (ejecutante); los participantes del ATS no vuelven a firmar (v09).
+- Es una barrera interna del piloto, no una firma digital certificada: su valor como sustento formal lo define el área con legal.
+
+Validación: `node tests/v10.cjs` (además de `regresion`, `carroceria`, `v08` y `v09`).
+
 ## v09 · PETAR B&P simplificado (perfil `bp-v2`)
 
 Cambios definidos por el área el 16-10-2026. Aplican a los PETAR nuevos; los PETAR `bp-v1`, `carroceria-v1` y anteriores conservan su formato en pantalla y PDF.
