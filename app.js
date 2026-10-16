@@ -1,5 +1,5 @@
 /* =====================================================================
-   APLICACIÓN — Grupo Pana · Gestión Digital SST · v08
+   APLICACIÓN — Grupo Pana · Gestión Digital SST · v09
    ATS y PETAR de trabajos de alto riesgo. Pantallas, navegación y acciones.
    ===================================================================== */
 (function () {
@@ -550,8 +550,12 @@
   }
 
   function fPCaliente(d) {
+    var preguntas = M.configPetar(d).caliente, nuevo = M.esBPNuevo(d);
     return '<p class="intro">Comprueba cada condición en el lugar de trabajo. N/A significa que esa condición no aplica a esta tarea.</p>' +
-      M.configPetar(d).caliente.map(function (r) { return preguntaV(d, 'caliente', r); }).join('') +
+      (nuevo ? '<h2 class="h-seccion">IV. Trabajos de alto riesgo · Trabajo en caliente</h2>' : '') +
+      preguntas.slice(0, nuevo ? 4 : preguntas.length).map(function (r) { return preguntaV(d, 'caliente', r); }).join('') +
+      (nuevo ? '<h2 class="h-seccion">Controles críticos complementarios</h2>' +
+        preguntas.slice(4).map(function (r) { return preguntaV(d, 'caliente', r); }).join('') : '') +
       campo('Vigía de trabajo en caliente *', txt('vigias.caliente.nombre', d.vigias.caliente.nombre, 'Nombres y apellidos'), 'Debe poder vigilar el punto de trabajo. No asignes a un ayudante que estará desarmando otra unidad. Firma en la pantalla de firmas.') +
       '<h2 class="h-seccion">Controles adicionales</h2>' +
       M.configPetar(d).adicionales.map(function (r) {
@@ -612,8 +616,9 @@
       campo('Otros (indicar)', txt('emergencia.equipoOtro', m.equipoOtro, '')) +
       pregunta('¿Las rutas de acceso y salida están libres de obstáculos? *', 'emergencia.rutasLibres', m.rutasLibres, ESC_SN, marca('critico')) +
       pregunta('¿Se indicó a los trabajadores involucrados las rutas de evacuación y puntos de reunión en caso de emergencia? *', 'emergencia.rutasIndicadas', m.rutasIndicadas, ESC_SN, marca('critico')) +
-      '<div class="par">' + campo('Teléfono de contacto para emergencias *', txt('emergencia.telefono', m.telefono, '', 'tel')) +
+      '<div class="par">' + campo(M.esBPNuevo(d) ? 'Teléfono de SST para emergencias *' : 'Teléfono de contacto para emergencias *', txt('emergencia.telefono', m.telefono, '', 'tel')) +
       campo('Persona de contacto *', txt('emergencia.contacto', m.contacto, '')) + '</div>' +
+      (M.esBPNuevo(d) ? campo('Teléfono del encargado de sede *', txt('emergencia.telefonoEncargado', m.telefonoEncargado, '', 'tel')) : '') +
       campo('Observaciones', area('observaciones', d.observaciones, 'Medidas complementarias o restricciones', 3));
   }
 
@@ -803,11 +808,11 @@
     if (d.tipos.caliente || d.tipos.altura || d.tipos.peligrosos) h += '<div class="datos">' + f('Fotografías de evidencia', String(M.totalFotos(d))) +
       (M.fotosFaltantes(d).length ? f('Evidencias pendientes', String(M.fotosFaltantes(d).length)) : '') + '</div>';
     h += tit('VI. Emergencias', P.indexOf('emergencia')) + '<div class="datos">' + f('Encargado de sede', m.encargadoSede) + f('Supervisor / prevencionista', m.supervisorPrevencionista) +
-      f('Rutas libres', sn(m.rutasLibres)) + f('Rutas indicadas', sn(m.rutasIndicadas)) + f('Contacto de emergencia', m.contacto + ' · ' + m.telefono) + '</div>';
+      f('Rutas libres', sn(m.rutasLibres)) + f('Rutas indicadas', sn(m.rutasIndicadas)) + f('Contacto SST', m.contacto + ' · ' + m.telefono) + (M.esBPNuevo(d) ? f('Teléfono encargado', m.telefonoEncargado) : '') + '</div>';
     if (d.estado !== 'BORRADOR') {
       h += tit('Autorización', undefined) + '<div class="datos">' + f('Participantes', d.participantes.map(function (x) { return x.nombre; }).join(', ')) +
         M.configPetar(d).firmasAutorizacion.map(function (a) { return f(a.cargo, d.autorizacion[a.clave].nombre); }).join('') + '</div>';
-      if (d.verificaciones.length) h += tit('Verificaciones durante el trabajo') + '<div class="datos">' + d.verificaciones.map(function (v) { return f(UI.fechaHora(v.fechaHora) + ' · ' + v.cargo, v.nombre + (v.observaciones ? ' — ' + v.observaciones : '')); }).join('') + '</div>';
+      if (d.verificaciones.length) h += tit('Verificaciones durante el trabajo') + '<div class="datos">' + d.verificaciones.map(function (v) { return f(UI.fechaHora(v.fechaHora) + ' · ' + v.cargo, v.nombre + (v.dni ? ' · DNI ' + v.dni : '') + (v.observaciones ? ' — ' + v.observaciones : '')); }).join('') + '</div>';
       if (d.cancelacion) h += '<div class="alerta alerta--mal"><strong>Cancelado:</strong> ' + esc(d.cancelacion.motivo) + (d.cancelacion.detalle ? ' — ' + esc(d.cancelacion.detalle) : '') + '</div>';
     }
     return h + '</section>';
@@ -815,11 +820,12 @@
 
   /* ====================== Verificación y cierre ===================== */
   function vVerificacion() {
-    var v = st.verif || (st.verif = { cargo: '', nombre: '', observaciones: '' });
+    var v = st.verif || (st.verif = { cargo: '', nombre: '', dni: '', observaciones: '' });
     app.innerHTML = UI.listaErrores(st.errores.map(function (m) { return { mensaje: m }; })) + '<section class="bloque">' +
       '<p class="intro">Registro de quien verifica el trabajo en curso (V°B°).</p>' +
       campo('Verificador (cargo) *', '<input type="text" id="vCargo" value="' + esc(v.cargo) + '" placeholder="Ej. Supervisor SST">') +
       campo('Apellidos y nombres *', '<input type="text" id="vNombre" value="' + esc(v.nombre) + '">') +
+      (M.esBPNuevo(st.doc) ? campo('DNI del verificador *', '<input type="tel" inputmode="numeric" maxlength="8" id="vDni" value="' + esc(v.dni || '') + '" placeholder="8 dígitos">') : '') +
       campo('Observaciones de la verificación', '<textarea id="vObs" rows="3">' + esc(v.observaciones) + '</textarea>') +
       '<h3 class="h-sub">V°B° *</h3><div class="firma"><canvas class="firma__lienzo" data-firma="__verif"></canvas>' +
       '<div class="firma__pie"><span>Firma con el dedo</span><button class="enlace" data-accion="borrar-firma" data-firma="__verif">Borrar</button></div></div>' +
@@ -846,7 +852,8 @@
     ['responsableArea', 'Responsable del área'],
     ['encargadoSede', 'Encargado de sede'],
     ['supervisorPrevencionista', 'Supervisor o prevencionista de emergencia'],
-    ['telefono', 'Teléfono para emergencias'],
+    ['telefono', 'Teléfono de SST para emergencias'],
+    ['telefonoEncargado', 'Teléfono del encargado de sede'],
     ['contacto', 'Persona de contacto para emergencias']
   ];
   function contactosHTML() {
@@ -1186,11 +1193,12 @@
   }
 
   function guardarVerificacion() {
-    var d = st.doc, v = { cargo: $('#vCargo').value.trim(), nombre: $('#vNombre').value.trim(), observaciones: $('#vObs').value.trim() };
+    var d = st.doc, v = { cargo: $('#vCargo').value.trim(), nombre: $('#vNombre').value.trim(), dni: M.esBPNuevo(d) ? $('#vDni').value.trim() : '', observaciones: $('#vObs').value.trim() };
     st.verif = v;
     var e = [];
     if (!v.cargo) e.push('Indica el cargo del verificador.');
     if (!v.nombre) e.push('Indica el nombre del verificador.');
+    if (M.esBPNuevo(d) && !M.dniValido(v.dni)) e.push('El DNI del verificador debe tener 8 dígitos.');
     if (!st['firma__verif']) e.push('Falta el V°B° (firma).');
     if (e.length) { st.errores = e; render(); window.scrollTo(0, 0); return; }
     v.firma = st['firma__verif']; v.fechaHora = new Date().toISOString();
