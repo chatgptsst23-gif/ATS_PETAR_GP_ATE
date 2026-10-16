@@ -7,7 +7,7 @@ for(const f of ['config.js','catalogo_bp.js','modelo.js','ui.js','pdf.js'])vm.ru
 const src=fs.readFileSync(path.join(root,'app.js'),'utf8');
 vm.runInContext(src.replace('window.App = { estado: st };','window.App = { estado: st, tareas: fAtsTareas, generales: fAtsGenerales, descripcion: fPDescripcion, requisitos: fPRequisitos, caliente: fPCaliente, emergencia: fPEmergencia };'),ctx);
 const C=w.SST_CONFIG,M=w.Modelo,A=w.App,K=w.SST_CATALOGO,u={nombre:'Técnico Ficticio Uno',cargo:'Técnico de Carrocería'};
-C.sede='Ate';C.sedeCodigo='ATE';C.modoPrueba=true;
+C.sede='Ate';C.sedeCodigo='ATE';C.modoPrueba=true;C.ats.modoLlenado='catalogo'; /* v11: estas pruebas cubren el modo con catálogo */
 // Catálogo
 assert.equal(K.tareas.length,22); assert.equal(K.puestos.length,4);
 assert(!C.petar.emergencias.includes('Tsunami')); assert.equal(C.petar.horaFinTurno,'18:00'); assert.equal(C.ats.maxPasos,30);

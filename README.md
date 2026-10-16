@@ -1,5 +1,15 @@
 # ATS y PETAR — Grupo Pana · Multisede
 
+## v11 · ATS de llenado manual y PETAR vinculado al terminar el ATS
+
+- **El trabajador llena el ATS** (decisión del área, 16-10-2026): ya no se eligen tareas del catálogo ni se precargan pasos, peligros, controles ni EPP. El ATS vuelve a 3 pasos: datos de la tarea, pasos/riesgos/controles y EPP. Se mantienen la fecha y hora automáticas, la lista de ubicaciones de la sede (Ate) y el supervisor desde los datos de la sede.
+- **Permisos:** los marca el trabajador, con ayuda en pantalla (caliente: soldadura, esmerilado, spotter u oxicorte; altura desde 1,80 m; materiales peligrosos no rutinarios). Estos tres requieren PETAR.
+- **Al registrar un ATS que requiere PETAR**, la app pregunta "¿Realizar ahora el PETAR?" y, si se acepta, lo crea vinculado a ese ATS. Si se elige "Más tarde", el detalle del ATS muestra "Realizar PETAR con este ATS".
+- **Trazabilidad ATS ↔ PETAR:** el detalle del ATS lista sus PETAR vinculados (o avisa si requiere uno y aún no lo tiene) y el detalle del PETAR tiene "Ver ATS …".
+- El catálogo de tareas (`catalogo_bp.js`) se conserva desactivado; se reactiva con `ats.modoLlenado: 'catalogo'`. Los borradores de ATS creados con catálogo conservan su formato.
+
+Validación: `node tests/v11.cjs` (además de `regresion`, `carroceria`, `v08`, `v09` y `v10`).
+
 ## v10 · Firma del ATS en la autorización del PETAR
 
 - En la autorización del PETAR B&P (`bp-v2`), el **supervisor del trabajo** y el **ejecutante** pueden tocar **"Usar mi firma del ATS"** si firmaron el ATS vinculado (se compara el nombre, sin distinguir mayúsculas ni tildes). Antes de aplicarla, la persona confirma que es ella; el **responsable del área** firma a mano.

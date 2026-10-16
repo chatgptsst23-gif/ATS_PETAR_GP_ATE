@@ -7,7 +7,7 @@ for(const f of ['config.js','catalogo_bp.js','modelo.js','ui.js','pdf.js'])vm.ru
 const src=fs.readFileSync(path.join(root,'app.js'),'utf8');
 vm.runInContext(src.replace('window.App = { estado: st };','window.App = { estado: st, epp: fPEpp, requisitos: fPRequisitos, caliente: fPCaliente, altura: fPAltura, peligrosos: fPPeligrosos, emergencia: fPEmergencia, firmas: vFirmas, setDoc: function (d) { st.doc = d; st.errores = []; } };'),ctx);
 const C=w.SST_CONFIG,M=w.Modelo,A=w.App,u={nombre:'Técnico Ficticio Uno',cargo:'Técnico de Carrocería'};
-C.sede='Ate';C.sedeCodigo='ATE';C.modoPrueba=true;
+C.sede='Ate';C.sedeCodigo='ATE';C.modoPrueba=true;C.ats.modoLlenado='catalogo'; /* v11: estas pruebas cubren el modo con catálogo */
 function atsCon(tareas,altura){const a=M.nuevoATS('ATS-P',u);a.generales.puesto='Técnico de Carrocería';a.tareasCatalogo=tareas;a.alturaDesde18=altura||'';M.aplicarTareas(a);
   M.aplicarUbicacion(a,'Nivel 1 – Bahía 2');a.personal=[{nombre:u.nombre,dni:'12345678',firma:'data:x'},{nombre:'Ayudante Ficticio',dni:'87654321',firma:'data:y'}];a.estado='REGISTRADO';return a;}
 const p=M.nuevoPETARBP('PETAR-P',u,atsCon(['T08']));

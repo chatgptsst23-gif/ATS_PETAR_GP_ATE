@@ -1,5 +1,5 @@
 /* =====================================================================
-   APLICACIÓN — Grupo Pana · Gestión Digital SST · v10
+   APLICACIÓN — Grupo Pana · Gestión Digital SST · v11
    ATS y PETAR de trabajos de alto riesgo. Pantallas, navegación y acciones.
    ===================================================================== */
 (function () {
@@ -468,6 +468,22 @@
         C.ats.permisos.map(function (p) { return ficha('toggle', 'permisos.' + p.id, d.permisos[p.id], p.label + (req[p.id] ? ' · por la tarea' : ''), !!req[p.id]); }).join('') + '</div>' +
         (d.permisos.otro ? campo('Especifica el otro permiso *', txt('permisoOtro', d.permisoOtro, '')) : '') + '</details>';
     }
+    if (M.esAtsManual(d)) {
+      /* v11: llenado por el trabajador; se mantiene la lista de ubicaciones de la sede. */
+      var selM = opcionesUbicacion(d);
+      return numeroFijo(d) +
+        campo('Tarea *', area('generales.tarea', g.tarea, 'Describe la tarea. Ej. Esmerilado de puerta delantera, placa ABC-123', 2)) +
+        (selM ? campo('Ubicación *', selM) + (g.ubicacionSel === '__otro' ? campo('Indica el lugar *', txt('generales.ubicacion', g.ubicacion, 'Ej. Patio de maniobras')) : '')
+              : campo('Ubicación *', txt('generales.ubicacion', g.ubicacion, 'Ej. Bahía 3 de planchado'))) +
+        campo('Área de Grupo Pana *', txt('generales.areaContratista', g.areaContratista, 'Ej. Planchado y pintura')) +
+        '<div class="par">' + campo('Fecha *', txt('generales.fecha', g.fecha, '', 'date')) + campo('Hora *', txt('generales.hora', g.hora, '', 'time')) + '</div>' +
+        campo('ATS liderado por *', txt('generales.lideradoPor', g.lideradoPor, 'Nombres y apellidos')) +
+        campo('Supervisor de trabajo *', txt('generales.supervisor', g.supervisor, 'Nombres y apellidos')) +
+        '<label class="etiqueta">Permisos que requiere esta tarea</label><p class="ayuda">' + esc(C.ats.ayudaPermisos) + '</p>' +
+        '<div class="fichas">' + C.ats.permisos.map(function (p) { return ficha('toggle', 'permisos.' + p.id, d.permisos[p.id], p.label); }).join('') + '</div>' +
+        (d.permisos.otro ? campo('Especifica el otro permiso *', txt('permisoOtro', d.permisoOtro, '')) : '') +
+        (M.atsRequierePetar(d) ? '<p class="nota">Al registrar este ATS, la app te ofrecerá realizar el PETAR vinculado.</p>' : '');
+    }
     return numeroFijo(d) +
       campo('Tarea *', txt('generales.tarea', g.tarea, 'Ej. Ensamblaje de carrocería o preparación de pintura')) +
       campo('Ubicación *', txt('generales.ubicacion', g.ubicacion, 'Ej. Bahía 3 de planchado')) +
@@ -498,7 +514,7 @@
           '</article>';
       }).join('') +
       (d.pasos.length < C.ats.maxPasos ? '<button class="btn btn--secundario btn--ancho" data-accion="agregar-paso">+ Agregar paso</button>' : '<p class="nota">Máximo ' + C.ats.maxPasos + ' pasos.</p>') +
-      (!M.usaCatalogo(d) && d.pasos.length === 1 && !d.pasos[0].paso ? '<button class="enlace" data-accion="ejemplo-pasos">Cargar un ejemplo de soldadura para la demostración</button>' : '');
+      (!M.usaCatalogo(d) && !M.esAtsManual(d) && d.pasos.length === 1 && !d.pasos[0].paso ? '<button class="enlace" data-accion="ejemplo-pasos">Cargar un ejemplo de soldadura para la demostración</button>' : '');
   }
 
   function fAtsEpp(d) {
@@ -747,7 +763,8 @@
     var acc = '<button class="btn btn--principal btn--ancho" data-accion="ver-pdf">Ver documento PDF</button>' +
       '<button class="btn btn--fantasma btn--ancho" data-accion="descargar-pdf">Descargar PDF</button>';
     if (d.estado !== 'BORRADOR') acc += '<button class="btn btn--fantasma btn--ancho" data-accion="reenviar">Reenviar a SST</button>';
-    if (d.tipo === 'ATS' && d.estado === 'REGISTRADO' && M.atsRequierePetar(d)) acc += '<button class="btn btn--secundario btn--ancho" data-accion="petar-desde" data-id="' + esc(d.id) + '">Crear PETAR con este ATS</button>';
+    if (d.tipo === 'ATS' && d.estado === 'REGISTRADO' && M.atsRequierePetar(d)) acc += '<button class="btn btn--principal btn--ancho" data-accion="petar-desde" data-id="' + esc(d.id) + '">Realizar PETAR con este ATS</button>';
+    if (d.tipo === 'PETAR' && d.descripcion && d.descripcion.atsId) acc += '<button class="btn btn--fantasma btn--ancho" data-accion="abrir" data-id="' + esc(d.descripcion.atsId) + '">Ver ATS ' + esc(d.descripcion.atsRef) + '</button>';
     if (d.tipo === 'PETAR' && e === 'AUTORIZADO') acc +=
       '<button class="btn btn--secundario btn--ancho" data-accion="ir-verificacion">Registrar verificación durante el trabajo</button>' +
       '<button class="btn btn--secundario btn--ancho" data-accion="ir-cierre">Cerrar permiso</button>' +
@@ -767,11 +784,13 @@
       (u ? '<section class="bloque"><div class="alerta alerta--' + (u.resultado === 'confirmado' ? 'ok' : 'aviso') + '"><strong>' +
         ({ prueba: 'Prueba local · sin envío', no_confirmado: 'sin confirmar', confirmado: 'confirmado ✓', enviado: 'sin confirmar', rechazado: 'rechazado', pendiente: 'pendiente', error: 'pendiente', sin_flujo: 'pendiente' }[u.resultado] || u.resultado) +
         '</strong><div>' + esc(u.detalle) + '</div><small>' + esc(UI.fechaHora(u.fechaHora)) + '</small></div></section>' : '') +
+      (d.tipo === 'ATS' && d.estado === 'REGISTRADO' ? '<section class="bloque" id="petarVinculados"></section>' : '') +
       '<section class="bloque"><h2 class="h-seccion">Acciones</h2>' + acc +
       '<h2 class="h-seccion">Trazabilidad</h2><div class="historial-estados">' +
       d.bitacora.slice().reverse().map(function (b) {
         return '<div class="he"><span>' + esc(M.etiquetaEstado(b.estado)) + '</span><small>' + esc(UI.fechaHora(b.fechaHora)) + ' · ' + esc(b.usuario) + (b.comentario ? ' · ' + esc(b.comentario) : '') + '</small></div>';
       }).join('') + '</div></section>';
+    if (d.tipo === 'ATS' && d.estado === 'REGISTRADO') petarVinculados(d);
   }
 
   /* Resumen legible del documento */
@@ -1210,8 +1229,31 @@
       M.cambiarEstado(d, estado, st.usuario.nombre, estado === 'AUTORIZADO' ? 'Autorizado por ' + d.autorizacion.supervisor.nombre + ' y ' + d.autorizacion.area.nombre : 'ATS firmado por ' + d.personal.length + ' persona(s)');
       window.Store.guardar(d).then(function () {
         return (C.enviarAl[momento] ? enviar(d, momento) : null);
-      }).then(function () { ir('detalle'); });
+      }).then(function () {
+        ir('detalle');
+        /* v11: al terminar un ATS que exige permiso, se ofrece realizar el PETAR vinculado. */
+        if (d.tipo === 'ATS' && M.atsRequierePetar(d)) ofrecerPetar(d);
+      });
     });
+  }
+
+  function ofrecerPetar(ats) {
+    var tipos = ['caliente', 'altura', 'peligrosos'].filter(function (k) { return ats.permisos[k]; })
+      .map(function (k) { return { caliente: 'trabajo en caliente', altura: 'trabajo en altura', peligrosos: 'materiales peligrosos' }[k]; });
+    return UI.confirmar({ titulo: 'Este ATS requiere PETAR', texto: 'El ' + ats.numero + ' indica ' + tipos.join(', ') + '. ¿Realizar ahora el PETAR? Quedará vinculado a este ATS.', aceptar: 'Realizar PETAR', cancelar: 'Más tarde' })
+      .then(function (ok) { if (ok) return nuevo('PETAR', ats); });
+  }
+
+  /* v11: PETAR creados desde este ATS (trazabilidad ATS → PETAR). */
+  function petarVinculados(d) {
+    if (d.tipo !== 'ATS') return;
+    window.Store.todos().then(function (l) {
+      var el = document.getElementById('petarVinculados');
+      if (!el) return;
+      var v = l.filter(function (x) { return x.tipo === 'PETAR' && x.descripcion && x.descripcion.atsId === d.id; });
+      el.innerHTML = '<h2 class="h-seccion">PETAR vinculados</h2>' + (v.length ? v.map(tarjeta).join('') :
+        (M.atsRequierePetar(d) ? '<div class="alerta alerta--aviso">Este ATS requiere PETAR y aún no tiene uno en este celular.</div>' : vacio('Este ATS no requiere PETAR.')));
+    }).catch(function () {});
   }
 
   function guardarVerificacion() {

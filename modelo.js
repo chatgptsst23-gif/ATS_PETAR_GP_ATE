@@ -1,5 +1,5 @@
 /* =====================================================================
-   MODELO — window.Modelo · v10
+   MODELO — window.Modelo · v11
    Estructura, validación y estados del ATS y del PETAR.
    Lógica pura: no toca la interfaz ni el almacenamiento.
    ===================================================================== */
@@ -49,9 +49,10 @@
         },
         permisos: {},
         permisoOtro: '',
-        pasos: window.SST_CATALOGO ? [] : [{ paso: '', evento: '', critico: '', medidas: '', responsable: '' }],
-        /* v08: tareas del catálogo B&P que precargan el ATS */
-        catalogo: window.SST_CATALOGO ? CAT().version : '',
+        pasos: Modelo.precargaATS() ? [] : [{ paso: '', evento: '', critico: '', medidas: '', responsable: '' }],
+        /* v08: tareas del catálogo B&P que precargan el ATS; v11: desactivado (llenado manual) */
+        catalogo: Modelo.precargaATS() ? CAT().version : '',
+        formato: C.ats.modoLlenado === 'manual' ? 'manual-v11' : '',
         tareasCatalogo: [], tareaLibre: false, alturaDesde18: '', auto: {}, permisosAuto: {},
         epp: {},
         otrosEpp: '', herramientas: '', comentarios: '',
@@ -122,6 +123,10 @@
     },
     /* v09: opciones del perfil (sinVigias, sinMonitoreo, sinFotos, soloAutorizacion). */
     opcion: function (d, k) { return !!(d && d.tipo === 'PETAR' && Modelo.configPetar(d)[k]); },
+
+    /* v11: la precarga desde el catálogo solo se usa si config.ats.modoLlenado === 'catalogo'. */
+    precargaATS: function () { return !!window.SST_CATALOGO && C.ats.modoLlenado === 'catalogo'; },
+    esAtsManual: function (d) { return !!(d && d.tipo === 'ATS' && d.formato === 'manual-v11'); },
 
     /* ------------------- v08: catálogo de tareas B&P ------------------- */
     catalogo: CAT,

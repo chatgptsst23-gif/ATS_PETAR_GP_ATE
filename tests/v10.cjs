@@ -5,7 +5,7 @@ const w={jspdf:require(path.join(root,'jspdf.umd.min.js'))};
 const ctx=vm.createContext({window:w,document:{addEventListener(){}},console,Date,Math,Uint8Array,setTimeout,clearTimeout});
 for(const f of ['config.js','catalogo_bp.js','modelo.js','ui.js','pdf.js'])vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),ctx);
 const C=w.SST_CONFIG,M=w.Modelo,u={nombre:'Técnico Ficticio Uno',cargo:'Técnico de Carrocería'};
-C.sede='Ate';C.sedeCodigo='ATE';C.modoPrueba=true;
+C.sede='Ate';C.sedeCodigo='ATE';C.modoPrueba=true;C.ats.modoLlenado='catalogo'; /* v11: estas pruebas cubren el modo con catálogo */
 const PNG='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 const a=M.nuevoATS('ATS-P',u);a.generales.puesto='Técnico de Carrocería';a.tareasCatalogo=['T08'];M.aplicarTareas(a);M.aplicarUbicacion(a,'Nivel 1 – Bahía 2');
 a.generales.supervisor='Supervisor Ficticio';

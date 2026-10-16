@@ -1,5 +1,5 @@
 /* =====================================================================
-   CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v10
+   CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v11
    ATS y PETAR — configuración multisede, área B&P
    ---------------------------------------------------------------------
    Todo el contenido de los formatos vive aquí. Cambiar una pregunta,
@@ -26,7 +26,7 @@ window.SST_CONFIG = {
   sede: '',
   sedeCodigo: '',
   areaPorDefecto: 'Planchado y pintura (B&P)',
-  version: 'v10 (firma del ATS en la autorización)',
+  version: 'v11 (ATS de llenado manual)',
 
   /* URL del flujo de Power Automate ("Cuando se recibe una solicitud HTTP").
      Vacía = la app funciona igual, pero no envía correo ni guarda en SharePoint. */
@@ -43,7 +43,11 @@ window.SST_CONFIG = {
     versionFormato: '01',
     titulo: 'ANÁLISIS DE TRABAJO SEGURO (ATS)',
     maxPersonal: 16,
-    maxPasos: 30,   /* v08: un ATS puede incluir varias tareas del catálogo */
+    maxPasos: 30,   /* v08: un ATS puede incluir varias tareas */
+    /* v11: el trabajador llena el ATS (sin precarga desde el catálogo de tareas; decisión del área, 16-10-2026).
+       El catálogo B&P se conserva en catalogo_bp.js por si se vuelve a habilitar con 'catalogo'. */
+    modoLlenado: 'manual',
+    ayudaPermisos: 'Marca los permisos que exige la tarea: Caliente (soldadura, esmerilado, spotter u oxicorte), Altura (trabajo desde 1,80 m) o Materiales peligrosos (tarea no rutinaria, por ejemplo ingreso al horno). Estos tres requieren PETAR.',
     permisos: [
       { id: 'caliente',   label: 'Caliente' },
       { id: 'altura',     label: 'Altura' },
