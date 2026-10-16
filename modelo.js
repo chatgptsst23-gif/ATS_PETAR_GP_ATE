@@ -98,7 +98,7 @@
           encargadoSede: '', supervisorPrevencionista: '',
           emergencias: {}, emergenciaOtro: '',
           equipos: {}, equipoOtro: '',
-          rutasLibres: '', rutasIndicadas: '', telefono: '', contacto: ''
+          rutasLibres: '', rutasIndicadas: '', telefono: '', telefonoEncargado: '', contacto: ''
         },
         observaciones: '',
         participantes: [],
@@ -114,9 +114,10 @@
       return p;
     },
 
-    esCarroceria: function (d) { return !!d && d.tipo === 'PETAR' && (d.perfilPetar === 'carroceria-v1' || d.perfilPetar === 'bp-v1'); },
-    esBP: function (d) { return !!d && d.tipo === 'PETAR' && d.perfilPetar === 'bp-v1'; },
-    configPetar: function (d) { return Modelo.esBP(d) ? C.petarBP : Modelo.esCarroceria(d) ? C.petarCarroceria : C.petar; },
+    esCarroceria: function (d) { return !!d && d.tipo === 'PETAR' && (d.perfilPetar === 'carroceria-v1' || d.perfilPetar === 'bp-v1' || d.perfilPetar === 'bp-v2'); },
+    esBP: function (d) { return !!d && d.tipo === 'PETAR' && (d.perfilPetar === 'bp-v1' || d.perfilPetar === 'bp-v2'); },
+    esBPNuevo: function (d) { return !!d && d.tipo === 'PETAR' && d.perfilPetar === 'bp-v2'; },
+    configPetar: function (d) { return Modelo.esBPNuevo(d) ? C.petarBPv2 : Modelo.esBP(d) ? C.petarBP : Modelo.esCarroceria(d) ? C.petarCarroceria : C.petar; },
 
     /* ------------------- v08: catálogo de tareas B&P ------------------- */
     catalogo: CAT,
@@ -196,7 +197,7 @@
     nuevoPETARBP: function (numero, usuario, ats) {
       if (!Modelo.atsRequierePetar(ats)) throw new Error('El ATS no indica trabajos que requieran PETAR (caliente, altura o materiales peligrosos).');
       var p = Modelo.nuevoPETAR(numero, usuario, ats);
-      p.perfilPetar = 'bp-v1';
+      p.perfilPetar = 'bp-v2';
       p.tipos = { caliente: !!ats.permisos.caliente, altura: !!ats.permisos.altura, peligrosos: !!ats.permisos.peligrosos };
       Object.keys(p.tipos).forEach(function (t) { if (p.tipos[t]) (C.petar.eppPorTipo[t] || []).forEach(function (k) { p.epp[k] = true; }); });
       var fin = C.petar.horaFinTurno || '';
@@ -301,7 +302,7 @@
       if (!d.supervisorTrabajo.nombre) d.supervisorTrabajo.nombre = c.supervisorTrabajo || '';
       if (!d.autorizacion.supervisor.nombre) d.autorizacion.supervisor.nombre = d.supervisorTrabajo.nombre;
       if (!d.autorizacion.area.nombre) d.autorizacion.area.nombre = c.responsableArea || '';
-      ['encargadoSede', 'supervisorPrevencionista', 'telefono', 'contacto'].forEach(function (k) {
+      ['encargadoSede', 'supervisorPrevencionista', 'telefono', 'telefonoEncargado', 'contacto'].forEach(function (k) {
         if (!d.emergencia[k]) d.emergencia[k] = c[k] || '';
       });
     },
@@ -360,6 +361,8 @@
       d.peligrosos = d.peligrosos || {};
       d.quimicos = d.quimicos || { productos: '', inflamable: '', lel: '' };
       d.evidencias = d.evidencias || {};
+      d.emergencia = d.emergencia || {};
+      if (d.emergencia.telefonoEncargado == null) d.emergencia.telefonoEncargado = '';
       if (d.estado === 'BORRADOR' && d.descripcion) d.descripcion.ejecutaTipo = 'Grupo Pana';
       d.vigias = d.vigias || { caliente: firmante(), altura: firmante() };
       d.vigias.caliente = Object.assign(firmante(), d.vigias.caliente || {});
@@ -530,7 +533,8 @@
         req(m.supervisorPrevencionista, 'Indica el supervisor o prevencionista.');
         if (!m.rutasLibres) e.push('Indica si las rutas de acceso y salida están libres de obstáculos.');
         if (!m.rutasIndicadas) e.push('Indica si se informó a los trabajadores las rutas de evacuación y puntos de reunión.');
-        req(m.telefono, 'Indica el teléfono de contacto para emergencias.');
+        req(m.telefono, Modelo.esBPNuevo(d) ? 'Indica el teléfono de SST para emergencias.' : 'Indica el teléfono de contacto para emergencias.');
+        if (Modelo.esBPNuevo(d)) req(m.telefonoEncargado, 'Indica el teléfono del encargado de sede para emergencias.');
         req(m.contacto, 'Indica la persona de contacto para emergencias.');
       }
       return e;
