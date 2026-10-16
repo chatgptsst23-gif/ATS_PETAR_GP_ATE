@@ -364,4 +364,55 @@ window.SST_CONFIG = {
     sugerenciasEpp: base.sugerenciasEpp,
     evidenciasPorTipo: { caliente: car.evidenciasPorTipo.caliente, altura: base.evidenciasPorTipo.altura, peligrosos: base.evidenciasPorTipo.peligrosos }
   });
+
+  /* v09 — Nuevo formato PETAR basado en la ficha propuesta por el área SST.
+     Los perfiles anteriores siguen disponibles para documentos históricos. */
+  var bp = C.petarBP;
+  var preguntas = bp.caliente;
+  function control(id) { return preguntas.find(function (r) { return r.id === id; }); }
+  C.petarBPv2 = Object.assign({}, bp, {
+    versionFormato: '02',
+    titulo: 'PERMISO DE EJECUCIÓN DE TRABAJOS DE ALTO RIESGO (PETAR)',
+    alcance: 'Formato PETAR B&P: ATS vinculado, EPP, verificación de condiciones, controles por actividad, emergencias, autorizaciones y cierre.',
+    /* Mantener peligrosos cuando el ATS lo exige; el modelo de referencia solo detalla caliente y altura. */
+    epp: [
+      { grupo: 'Trabajo en caliente', tipo: 'caliente', items: [
+        { id: 'careta_soldar', label: 'Careta de soldar' },
+        { id: 'careta_esmerilar', label: 'Careta para esmerilar' },
+        { id: 'mandil_cuero', label: 'Mandil de cuero' },
+        { id: 'escarpines', label: 'Escarpines / polainas' },
+        { id: 'lentes', label: 'Lentes / sobrelentes' },
+        { id: 'guantes_cuero', label: 'Guantes de cuero' }
+      ] },
+      { grupo: 'Protección respiratoria y auditiva', items: [
+        { id: 'resp_mediacara_filtro', label: 'Respirador de media cara con filtro' },
+        { id: 'orejeras', label: 'Orejeras de protección auditiva' },
+        { id: 'tapones', label: 'Tapones de protección auditiva' }
+      ] },
+      { grupo: 'Trabajo en altura', tipo: 'altura', items: [
+        { id: 'arnes', label: 'Arnés de cuerpo completo' },
+        { id: 'linea_doble', label: 'Línea de anclaje' },
+        { id: 'gorro_antigolpe', label: 'Gorro antigolpe (no sustituye al sistema anticaídas)' }
+      ] },
+      { grupo: 'Otros guantes según actividad', items: [
+        { id: 'guantes_g40', label: 'Guantes G40' },
+        { id: 'guantes_g60', label: 'Guantes G60' },
+        { id: 'guantes_g10', label: 'Guantes G10' },
+        { id: 'guantes_hyflex', label: 'Guantes Hyflex' }
+      ] }
+    ],
+    requisitos: bp.requisitos.map(function (r) {
+      if (r.id === 'r_externos') return Object.assign({}, r, {
+        label: '¿El espacio permite realizar el trabajo sin producir daños a las personas ni al entorno, considerando las actividades cercanas?',
+        ayuda: 'Verifica combustibles, vapores, tránsito de personas, unidades y tareas en bahías contiguas.'
+      });
+      if (r.id === 'r_delimitada') return Object.assign({}, r, {
+        label: '¿El área de trabajo se ha aislado o delimitado correctamente?'
+      });
+      return r;
+    }),
+    caliente: ['c_radio', 'c_extintor', 'c_herramientas', 'c_biombos', 'c_carroceria', 'c_lel', 'c_ventilacion'].map(control).filter(Boolean),
+    emergencias: ['Emergencias médicas', 'Incendio', 'Tsunami', 'Sismo', 'Derrame de materiales'],
+    equiposEmergencia: ['Botiquín de primeros auxilios', 'Camilla', 'Extintor', 'Equipos de comunicación para emergencias']
+  });
 })(window.SST_CONFIG);
