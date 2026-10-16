@@ -411,7 +411,11 @@ window.SST_CONFIG = {
       });
       return r;
     }),
-    caliente: ['c_radio', 'c_extintor', 'c_herramientas', 'c_biombos', 'c_carroceria', 'c_lel', 'c_ventilacion'].map(control).filter(Boolean),
+    caliente: ['c_radio', 'c_extintor', 'c_herramientas', 'c_biombos', 'c_carroceria', 'c_lel', 'c_ventilacion'].map(control).filter(Boolean).map(function (r) {
+      if (r.id === 'c_radio') return Object.assign({}, r, { ayuda: 'Retirar o proteger materiales combustibles según el criterio de 12 metros definido en el formato y revisar el interior del vehículo.' });
+      if (r.id === 'c_extintor') return Object.assign({}, r, { ayuda: 'Verificar disponibilidad, operatividad, accesibilidad y capacidad definida por el área SST.' });
+      return r;
+    }),
     emergencias: ['Emergencias médicas', 'Incendio', 'Tsunami', 'Sismo', 'Derrame de materiales'],
     equiposEmergencia: ['Botiquín de primeros auxilios', 'Camilla', 'Extintor', 'Equipos de comunicación para emergencias']
   });
