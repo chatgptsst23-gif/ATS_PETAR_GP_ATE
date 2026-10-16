@@ -1,5 +1,5 @@
 /* =====================================================================
-   CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v08
+   CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v09
    ATS y PETAR — configuración multisede, área B&P
    ---------------------------------------------------------------------
    Todo el contenido de los formatos vive aquí. Cambiar una pregunta,
@@ -26,7 +26,7 @@ window.SST_CONFIG = {
   sede: '',
   sedeCodigo: '',
   areaPorDefecto: 'Planchado y pintura (B&P)',
-  version: 'v08 (ATS precargado B&P)',
+  version: 'v09 (PETAR B&P simplificado)',
 
   /* URL del flujo de Power Automate ("Cuando se recibe una solicitud HTTP").
      Vacía = la app funciona igual, pero no envía correo ni guarda en SharePoint. */
@@ -363,5 +363,65 @@ window.SST_CONFIG = {
     epp: base.epp,
     sugerenciasEpp: base.sugerenciasEpp,
     evidenciasPorTipo: { caliente: car.evidenciasPorTipo.caliente, altura: base.evidenciasPorTipo.altura, peligrosos: base.evidenciasPorTipo.peligrosos }
+  });
+
+  /* v09 — PETAR B&P simplificado (decisión del área, 16-10-2026). Perfil 'bp-v2' para PETAR nuevos;
+     los 'bp-v1' anteriores conservan su formato. Sin vigías, sin monitoreo del ambiente (LEL),
+     sin fotos y sin firmas de participantes (ya firmaron el ATS): tras emergencias se pasa a la
+     autorización (supervisor, responsable del área y ejecutante). Altura y EPP de materiales
+     peligrosos quedan pendientes de definir por el área. */
+  function literal(id, label, extra) { return Object.assign({ id: id, label: label, nivel: 'critico', textoLiteral: true }, extra || {}); }
+  C.petarBP2 = Object.assign({}, C.petarBP, {
+    sinVigias: true, sinMonitoreo: true, sinFotos: true, soloAutorizacion: true,
+    requisitos: [
+      literal('r_ats', '¿Se ha realizado el ATS con la participación de todos los integrantes de trabajo?'),
+      literal('r_calificadas', 'Las personas que efectúan el trabajo, ¿se encuentran calificadas para desarrollar este tipo de labores?'),
+      literal('r_instruidas', '¿Las personas se encuentran instruidas en relación con los riesgos que pueden presentarse durante este trabajo?'),
+      literal('r_epp', '¿Todos cuentan con sus EPP en su totalidad y estos se encuentran en buenas condiciones?'),
+      literal('r_aislada', '¿El área de trabajo se ha aislado correctamente?'),
+      literal('r_equipos', '¿Se ha realizado la revisión de equipos y herramientas y estos se encuentran en buen estado?'),
+      literal('r_entorno', '¿El espacio permite realizar el trabajo sin producir daños en el entorno?'),
+      literal('r_electricas', '¿Existen conexiones eléctricas convenientes para el trabajo a realizar?')
+    ],
+    caliente: [
+      literal('c_radio', '¿Se ha alejado y/o cubierto el material inflamable a un radio de 12 metros?'),
+      literal('c_extintor', '¿Se cuenta con un extintor PQS de no menos de 9 kg?'),
+      literal('c_herramientas', '¿Las herramientas eléctricas y la máquina de soldar cuentan con cables y conexiones en buen estado, libres de empalmes, guardas de protección y puesta a tierra?', { admiteNA: true }),
+      literal('c_biombos', '¿Se cuenta con biombos para la actividad?')
+    ],
+    adicionales: [],
+    /* EPP por tipo de trabajo: se muestra solo el grupo de los tipos activos. */
+    epp: [
+      { grupo: 'Trabajo en caliente', tipo: 'caliente', items: [
+        { id: 'careta_soldar', label: 'Careta de soldar' },
+        { id: 'resp_filtro', label: 'Respirador con filtro' },
+        { id: 'mandil_cuero', label: 'Mandil de cuero' },
+        { id: 'escarpines', label: 'Escarpines' },
+        { id: 'lentes', label: 'Lentes / sobrelentes' },
+        { id: 'guantes_cuero', label: 'Guantes de cuero' },
+        { id: 'auditiva', label: 'Protección auditiva' },
+        { id: 'careta_esmerilar', label: 'Careta de esmerilar' }
+      ]},
+      { grupo: 'Trabajo en altura (lista pendiente de definir por el área)', tipo: 'altura', items: [
+        { id: 'arnes', label: 'Arnés' },
+        { id: 'linea_doble', label: 'Línea de anclaje doble' }
+      ]},
+      { grupo: 'Materiales peligrosos (lista pendiente de definir por el área)', tipo: 'peligrosos', items: [
+        { id: 'resp_vapores', label: 'Respirador con filtro para vapores orgánicos' },
+        { id: 'lentes_ventilacion', label: 'Lentes con ventilación indirecta' },
+        { id: 'guantes_quimicos', label: 'Guantes para químicos' },
+        { id: 'traje_pintura', label: 'Traje de pintura' }
+      ]}
+    ],
+    sugerenciasEpp: {},
+    /* Se marcan al crear el PETAR; se desmarca lo que no se use en la tarea. */
+    eppPorTipo: {
+      caliente: ['careta_soldar', 'resp_filtro', 'mandil_cuero', 'escarpines', 'lentes', 'guantes_cuero', 'auditiva', 'careta_esmerilar'],
+      altura: ['arnes', 'linea_doble'],
+      peligrosos: []
+    },
+    /* Sin la pregunta de medición de atmósferas (monitoreo del ambiente retirado). */
+    peligrosos: base.peligrosos.filter(function (it) { return it.id !== 'q_atmosfera'; }),
+    evidenciasPorTipo: {}
   });
 })(window.SST_CONFIG);

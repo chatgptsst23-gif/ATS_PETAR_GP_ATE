@@ -362,7 +362,7 @@
       L.banda('V. TRABAJO DE ALTO RIESGO — TRABAJO EN CALIENTE (SUPERVISOR DEL TRABAJO)');
       L.tabla([{ t: 'Verificación', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
         window.Modelo.configPetar(d).caliente.map(function (r) { return [r.label, sn(d.caliente[r.id])]; }));
-      L.tabla([{ t: 'Control adicional', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
+      if (window.Modelo.configPetar(d).adicionales.length) L.tabla([{ t: 'Control adicional', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
         window.Modelo.configPetar(d).adicionales.map(function (r) { return [r.label, sn(d.adicionales[r.id])]; }));
       L.sep();
     }
@@ -386,19 +386,21 @@
     if (d.tipos.peligrosos) {
       L.banda('V. TRABAJO CON MATERIALES PELIGROSOS — TAREA NO RUTINARIA');
       L.fila([['Productos químicos que se manipularán', d.quimicos.productos, 0.7], ['¿Algún producto es inflamable?', sn(d.quimicos.inflamable), 0.3]]);
-      if (window.Modelo.calienteConInflamables(d)) {
+      if (window.Modelo.calienteConInflamables(d) && window.Modelo.opcion(d, 'sinMonitoreo')) {
+        L.fila([['Trabajo en caliente con productos inflamables', 'NO AUTORIZABLE EN EL MISMO PERMISO: separar en tiempo o lugar', 1]]);
+      } else if (window.Modelo.calienteConInflamables(d)) {
         L.fila([['Trabajo en caliente con productos inflamables — LEL medido', d.quimicos.lel !== '' && d.quimicos.lel != null ? d.quimicos.lel + ' %' : 'SIN MEDICIÓN', 1]]);
       }
       L.tabla([{ t: 'Verificación', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
-        C.petar.peligrosos.map(function (r) { return [r.label, sn(d.peligrosos[r.id])]; }));
+        window.Modelo.configPetar(d).peligrosos.map(function (r) { return [r.label, sn(d.peligrosos[r.id])]; }));
       L.sep();
     }
 
-    if (d.tipos.caliente) {
+    if (d.tipos.caliente && !window.Modelo.opcion(d, 'sinVigias')) {
       L.firmas([{ titulo: 'Vigía · trabajo en caliente', nombre: d.vigias.caliente.nombre, detalle: d.vigias.caliente.fechaHora ? 'Firmó ' + fmtFH(d.vigias.caliente.fechaHora) : '', firma: d.vigias.caliente.firma }], 3);
       L.sep();
     }
-    if (d.tipos.altura) {
+    if (d.tipos.altura && !window.Modelo.opcion(d, 'sinVigias')) {
       L.firmas([{ titulo: 'Vigía · trabajo en altura', nombre: d.vigias.altura.nombre, detalle: d.vigias.altura.fechaHora ? 'Firmó ' + fmtFH(d.vigias.altura.fechaHora) : '', firma: d.vigias.altura.firma }], 3);
       L.sep();
     }
@@ -422,10 +424,16 @@
     if (d.observaciones) L.texto('Observaciones', d.observaciones);
     L.sep();
 
+    if (window.Modelo.opcion(d, 'soloAutorizacion')) {
+      L.banda('VII. COLABORADORES PARTICIPANTES');
+      L.tabla([{ t: 'N°', w: 0.06, a: 'center' }, { t: 'Apellidos y nombres', w: 0.5 }, { t: 'DNI', w: 0.16, a: 'center' }, { t: 'Firma', w: 0.28 }],
+        d.participantes.map(function (x, i) { return [i + 1, x.nombre, x.dni || '—', 'Firmó el ATS ' + s.atsRef]; }));
+    } else {
     L.banda('VII. AUTORIZACIÓN DEL TRABAJO — COLABORADORES PARTICIPANTES');
     L.firmas(d.participantes.map(function (x, i) {
       return { titulo: (i + 1) + '. Colaborador participante', nombre: x.nombre, detalle: 'DNI ' + (x.dni || '—') + (x.fechaHora ? ' · ' + fmtFH(x.fechaHora) : ''), firma: x.firma };
     }).concat([{ titulo: 'Supervisor de trabajo', nombre: d.supervisorTrabajo.nombre, detalle: 'DNI ' + (d.supervisorTrabajo.dni || '—'), firma: d.supervisorTrabajo.firma }]), 4);
+    }
     L.sep();
 
     L.banda('AUTORIZACIÓN DEL TRABAJO');

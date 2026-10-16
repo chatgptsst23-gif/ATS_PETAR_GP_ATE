@@ -1,5 +1,5 @@
 /* =====================================================================
-   APLICACIÓN — Grupo Pana · Gestión Digital SST · v08
+   APLICACIÓN — Grupo Pana · Gestión Digital SST · v09
    ATS y PETAR de trabajos de alto riesgo. Pantallas, navegación y acciones.
    ===================================================================== */
 (function () {
@@ -141,6 +141,8 @@
   }
 
   function preguntaGuiada(it, ruta, valor, escala, alerta) {
+    /* v09: preguntas con el texto exacto aprobado por el área, sin título corto. */
+    if (it.textoLiteral) return pregunta(it.label, ruta, valor, escala, marca(it.nivel), alerta, it.ayuda ? '<p class="ayuda">' + esc(it.ayuda) + '</p>' : '');
     if (it.ayuda) return pregunta(it.label, ruta, valor, escala, marca(it.nivel), alerta, '<p class="ayuda">' + esc(it.ayuda) + '</p>');
     var ayuda = C.petar.ayudas[it.id];
     var extra = ayuda ? '<p class="ayuda">' + esc(ayuda[1]) + '</p><details class="ayuda-pregunta"><summary>Ver pregunta completa</summary><p>' + esc(it.label) + '</p></details>' : '';
@@ -527,7 +529,9 @@
 
   function fPEpp(d) {
     var pendiente = d.eppPendienteDetalle || {};
-    return '<p class="intro">Selecciona el EPP que usarán en esta tarea. Puedes añadir una sugerencia y ajustarla.</p>' +
+    return (M.esBP(d) && !Object.keys(M.configPetar(d).sugerenciasEpp).length
+      ? '<p class="intro">EPP del tipo de trabajo, ya marcado. Desmarca lo que no se usará en esta tarea.</p>'
+      : '<p class="intro">Selecciona el EPP que usarán en esta tarea. Puedes añadir una sugerencia y ajustarla.</p>') +
       '<div class="fichas">' + Object.keys(M.configPetar(d).sugerenciasEpp).map(function (k) {
         return '<button class="btn btn--fantasma" data-accion="sugerir-epp" data-perfil="' + k + '">Sugerir: ' + esc(M.configPetar(d).sugerenciasEpp[k].label) + '</button>';
       }).join('') + '</div><p class="ayuda">Las sugerencias añaden opciones; no confirman que sean suficientes ni que estén en buen estado. Revisa la selección según la tarea, las hojas de seguridad y el equipo utilizado.</p>' +
@@ -552,8 +556,8 @@
   function fPCaliente(d) {
     return '<p class="intro">Comprueba cada condición en el lugar de trabajo. N/A significa que esa condición no aplica a esta tarea.</p>' +
       M.configPetar(d).caliente.map(function (r) { return preguntaV(d, 'caliente', r); }).join('') +
-      campo('Vigía de trabajo en caliente *', txt('vigias.caliente.nombre', d.vigias.caliente.nombre, 'Nombres y apellidos'), 'Debe poder vigilar el punto de trabajo. No asignes a un ayudante que estará desarmando otra unidad. Firma en la pantalla de firmas.') +
-      '<h2 class="h-seccion">Controles adicionales</h2>' +
+      (M.opcion(d, 'sinVigias') ? '' : campo('Vigía de trabajo en caliente *', txt('vigias.caliente.nombre', d.vigias.caliente.nombre, 'Nombres y apellidos'), 'Debe poder vigilar el punto de trabajo. No asignes a un ayudante que estará desarmando otra unidad. Firma en la pantalla de firmas.')) +
+      (M.configPetar(d).adicionales.length ? '<h2 class="h-seccion">Controles adicionales</h2>' : '') +
       M.configPetar(d).adicionales.map(function (r) {
         return pregunta(r.label, 'adicionales.' + r.id, d.adicionales[r.id], ESC_SNNA, marca(r.nivel));
       }).join('');
@@ -564,7 +568,7 @@
     return '<p class="intro">Verificación del supervisor del trabajo.</p>' +
       '<div class="alerta alerta--aviso">' + esc(C.petar.notaAltura) + '</div>' +
       C.petar.altura.map(function (r) { return preguntaV(d, 'altura', r); }).join('') +
-      campo('Vigía de trabajo en altura *', txt('vigias.altura.nombre', d.vigias.altura.nombre, 'Nombres y apellidos'), 'Firma de manera independiente en la pantalla de firmas.') +
+      (M.opcion(d, 'sinVigias') ? '' : campo('Vigía de trabajo en altura *', txt('vigias.altura.nombre', d.vigias.altura.nombre, 'Nombres y apellidos'), 'Firma de manera independiente en la pantalla de firmas.')) +
       '<h2 class="h-seccion">Uso de escaleras</h2>' +
       pregunta('¿Se usará escalera para esta tarea? *', 'escaleras.usa', e.usa, ESC_SN) +
       (e.usa === 'si' ? C.petar.escaleras.map(function (r) { return preguntaV(d, 'escaleras', r); }).join('') : '');
@@ -575,12 +579,14 @@
     return '<div class="alerta alerta--aviso">Solo para tareas no rutinarias (por ejemplo: limpieza o mantenimiento de cabina u horno, trasvase o mezcla fuera de la cabina). La pintura rutinaria se gestiona con IPERC, PETS, HDS y ATS.</div>' +
       campo('Productos químicos que se manipularán *', area('quimicos.productos', q.productos, 'Ej. thinner acrílico, catalizador, desengrasante', 2)) +
       pregunta('¿Algún producto es inflamable? *', 'quimicos.inflamable', q.inflamable, ESC_SN) +
-      (M.calienteConInflamables(d)
+      (M.calienteConInflamables(d) && M.opcion(d, 'sinMonitoreo')
+        ? '<div class="alerta alerta--mal"><strong>Trabajo en caliente con productos inflamables.</strong> No se autoriza en el mismo permiso: separa las tareas en tiempo o lugar.</div>'
+        : M.calienteConInflamables(d)
         ? '<div class="alerta alerta--mal"><strong>Trabajo en caliente con productos inflamables.</strong> Solo puede autorizarse con medición de LEL igual a 0 %. Si no hay medidor, separa las tareas en tiempo o lugar.</div>' +
           campo('LEL medido (%)', txt('quimicos.lel', q.lel, 'Ej. 0', 'number', ' inputmode="decimal" step="0.1" min="0"'))
         : '') +
       '<h2 class="h-seccion">Verificación</h2>' +
-      C.petar.peligrosos.map(function (r) { return preguntaV(d, 'peligrosos', r); }).join('');
+      M.configPetar(d).peligrosos.map(function (r) { return preguntaV(d, 'peligrosos', r); }).join('');
   }
 
   function fPEvidencias(d) {
@@ -651,6 +657,16 @@
         (d.personal.length < C.ats.maxPersonal ? nuevoFirmante(false) : '<p class="nota">Máximo ' + C.ats.maxPersonal + ' personas.</p>') + '</section>' +
         '<section class="bloque"><h2 class="h-seccion">Supervisor de trabajo</h2>' + firmaFija('supervisorFirma', d.supervisorFirma, false, d.generales.supervisor) + '</section>' +
         '<section class="bloque acciones-finales"><button class="btn btn--principal btn--ancho" data-accion="registrar-ats">' + (C.modoPrueba ? 'Registrar ATS de prueba' : 'Registrar ATS y enviar a SST') + '</button>' +
+        '<button class="btn btn--secundario btn--ancho" data-accion="guardar-salir">Guardar y salir</button></section>';
+    } else if (M.opcion(d, 'soloAutorizacion')) {
+      /* v09: los participantes firmaron el ATS; aquí solo firma la autorización. */
+      h += '<section class="bloque"><h2 class="h-seccion">Participantes</h2><p class="intro">Firmaron el ATS ' + esc(d.descripcion.atsRef) + '. No vuelven a firmar el PETAR.</p>' +
+        '<div class="datos">' + d.participantes.map(function (x) { return '<div class="dato"><span>' + esc(x.dni ? 'DNI ' + x.dni : 'Sin DNI') + '</span><strong>' + esc(x.nombre) + '</strong></div>'; }).join('') + '</div></section>' +
+        '<section class="bloque"><h2 class="h-seccion">Autorización del trabajo</h2>' +
+        M.configPetar(d).firmasAutorizacion.map(function (a) {
+          return '<h3 class="h-sub">' + esc(a.cargo) + '</h3>' + (a.ayuda ? '<p class="nota">' + esc(a.ayuda) + '</p>' : '') + firmaFija('autorizacion.' + a.clave, d.autorizacion[a.clave], false);
+        }).join('') + '</section>' +
+        '<section class="bloque acciones-finales"><button class="btn btn--principal btn--ancho" data-accion="autorizar">' + (C.modoPrueba ? 'Simular autorización del PETAR' : 'Autorizar PETAR y enviar a SST') + '</button>' +
         '<button class="btn btn--secundario btn--ancho" data-accion="guardar-salir">Guardar y salir</button></section>';
     } else {
       h += '<section class="bloque"><h2 class="h-seccion">VII. Colaboradores participantes</h2>' +
@@ -790,17 +806,18 @@
     h += tit('I. Descripción del trabajo', P.indexOf('descripcion')) + '<div class="datos">' +
       f('Sede', M.sede(d)) + f('Fecha y horario', fecha(s.fecha) + ' · ' + s.horaInicio + ' a ' + (s.horaFin || '—')) + f('ATS de referencia', s.atsRef) +
       f('Área de Grupo Pana', s.ejecutaNombre) + f('Tarea', s.tarea) + f('Lugar', s.lugar) + f('Tipo', M.tiposTexto(d)) +
-      f('Capacitación previa', sn(s.capacitacion)) + '</div>' +
+      (M.esBP(d) ? '' : f('Capacitación previa', sn(s.capacitacion))) + '</div>' +
       tit('III. EPP', P.indexOf('epp')) + '<p class="parrafo">' + esc(M.catalogoEpp(d).reduce(function (a, g) { return a.concat(g.items.filter(function (it) { return d.epp[it.id]; }).map(function (it) { return it.label; })); }, []).concat(d.eppOtros ? [d.eppOtros] : []).join(', ') || '—') + '</p>' +
       tit('IV. Requisitos de seguridad', P.indexOf('requisitos')) + lista(M.configPetar(d).requisitos, d.requisitos);
     if (d.tipos.caliente) h += tit('V. Trabajo en caliente', P.indexOf('caliente')) + lista(M.configPetar(d).caliente, d.caliente) +
-      '<p class="nota">Controles adicionales:</p>' + lista(M.configPetar(d).adicionales, d.adicionales) + '<div class="datos">' + f('Vigía caliente', d.vigias && d.vigias.caliente ? d.vigias.caliente.nombre : '') + '</div>';
+      (M.configPetar(d).adicionales.length ? '<p class="nota">Controles adicionales:</p>' + lista(M.configPetar(d).adicionales, d.adicionales) : '') +
+      (M.opcion(d, 'sinVigias') ? '' : '<div class="datos">' + f('Vigía caliente', d.vigias && d.vigias.caliente ? d.vigias.caliente.nombre : '') + '</div>');
     if (d.tipos.altura) h += tit('V. Trabajo en altura', P.indexOf('altura')) + lista(C.petar.altura, d.altura) +
       (d.escaleras.usa === 'si' ? '<p class="nota">Uso de escaleras (bloque sugerido):</p>' + lista(C.petar.escaleras, d.escaleras) : '<div class="datos">' + f('Uso de escalera', sn(d.escaleras.usa)) + '</div>');
     if (d.tipos.peligrosos) h += tit('V. Materiales peligrosos', P.indexOf('peligrosos')) + '<div class="datos">' + f('Productos', d.quimicos.productos) +
-      f('¿Inflamables?', sn(d.quimicos.inflamable)) + (M.calienteConInflamables(d) ? f('LEL medido', d.quimicos.lel ? d.quimicos.lel + ' %' : 'Sin medición') : '') + '</div>' +
-      lista(C.petar.peligrosos, d.peligrosos);
-    if (d.tipos.caliente || d.tipos.altura || d.tipos.peligrosos) h += '<div class="datos">' + f('Fotografías de evidencia', String(M.totalFotos(d))) +
+      f('¿Inflamables?', sn(d.quimicos.inflamable)) + (M.calienteConInflamables(d) && !M.opcion(d, 'sinMonitoreo') ? f('LEL medido', d.quimicos.lel ? d.quimicos.lel + ' %' : 'Sin medición') : '') + '</div>' +
+      lista(M.configPetar(d).peligrosos, d.peligrosos);
+    if ((d.tipos.caliente || d.tipos.altura || d.tipos.peligrosos) && !M.opcion(d, 'sinFotos')) h += '<div class="datos">' + f('Fotografías de evidencia', String(M.totalFotos(d))) +
       (M.fotosFaltantes(d).length ? f('Evidencias pendientes', String(M.fotosFaltantes(d).length)) : '') + '</div>';
     h += tit('VI. Emergencias', P.indexOf('emergencia')) + '<div class="datos">' + f('Encargado de sede', m.encargadoSede) + f('Supervisor / prevencionista', m.supervisorPrevencionista) +
       f('Rutas libres', sn(m.rutasLibres)) + f('Rutas indicadas', sn(m.rutasIndicadas)) + f('Contacto de emergencia', m.contacto + ' · ' + m.telefono) + '</div>';

@@ -1,5 +1,20 @@
 # ATS y PETAR — Grupo Pana · Multisede
 
+## v09 · PETAR B&P simplificado (perfil `bp-v2`)
+
+Cambios definidos por el área el 16-10-2026. Aplican a los PETAR nuevos; los PETAR `bp-v1`, `carroceria-v1` y anteriores conservan su formato en pantalla y PDF.
+
+- **Sin vigías** ni firmas de vigía (caliente y altura).
+- **Sin monitoreo del ambiente:** se retiran la pregunta de LEL/espacio cerrado, el campo "LEL medido" y la medición de atmósferas de materiales peligrosos. Trabajo en caliente + productos inflamables en el mismo permiso **no se autoriza**: se separan las tareas en tiempo o lugar.
+- **EPP por tipo de trabajo** (solo se muestra el grupo de los tipos activos y viene marcado; se desmarca lo que no se use). Caliente: careta de soldar, respirador con filtro, mandil de cuero, escarpines, lentes/sobrelentes, guantes de cuero, protección auditiva y careta de esmerilar. Altura y materiales peligrosos: listas provisionales, **pendientes de definir**. Ya no se copian los EPP del ATS.
+- **Requisitos generales:** 8 preguntas con el texto aprobado (incluye "¿El área de trabajo se ha aislado correctamente?" y "¿El espacio permite realizar el trabajo sin producir daños en el entorno?").
+- **Trabajo en caliente:** 4 preguntas (12 m, extintor PQS 9 kg, herramientas/máquina de soldar, biombos). Se retiran los controles adicionales.
+- **Trabajo en altura:** sin cambios de contenido (pendiente de definir por el área), sin vigía.
+- **Sin fotos de evidencia.** Emergencias se mantienen (sin tsunami ni trípode).
+- **Firmas:** tras emergencias se pasa a la autorización (supervisor del trabajo, responsable del área y ejecutante). Los participantes no vuelven a firmar: el PDF los lista con "Firmó el ATS …" y la app bloquea si alguien del PETAR no firmó el ATS.
+
+Validación: `node tests/v09.cjs` (además de `regresion`, `carroceria` y `v08`).
+
 ## v08 · ATS precargado desde el catálogo de tareas B&P
 
 Objetivo: reducir el tiempo de llenado en campo (40–45 min medidos con la v07.4) sin quitar controles. El tiempo nuevo debe medirse en campo.
