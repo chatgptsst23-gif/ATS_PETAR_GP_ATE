@@ -796,19 +796,19 @@
       f('Sede', M.sede(d)) + f('Fecha y horario', fecha(s.fecha) + ' · ' + s.horaInicio + ' a ' + (s.horaFin || '—')) + f('ATS de referencia', s.atsRef) +
       f('Área de Grupo Pana', s.ejecutaNombre) + f('Tarea', s.tarea) + f('Lugar', s.lugar) + f('Tipo', M.tiposTexto(d)) +
       f('Capacitación previa', sn(s.capacitacion)) + '</div>' +
-      tit('III. EPP', P.indexOf('epp')) + '<p class="parrafo">' + esc(M.catalogoEpp(d).reduce(function (a, g) { return a.concat(g.items.filter(function (it) { return d.epp[it.id]; }).map(function (it) { return it.label; })); }, []).concat(d.eppOtros ? [d.eppOtros] : []).join(', ') || '—') + '</p>' +
-      tit('IV. Requisitos de seguridad', P.indexOf('requisitos')) + lista(M.configPetar(d).requisitos, d.requisitos);
-    if (d.tipos.caliente) h += tit('V. Trabajo en caliente', P.indexOf('caliente')) + lista(M.configPetar(d).caliente, d.caliente) +
+      tit(M.esBPNuevo(d) ? 'II. EPP' : 'III. EPP', P.indexOf('epp')) + '<p class="parrafo">' + esc(M.catalogoEpp(d).reduce(function (a, g) { return a.concat(g.items.filter(function (it) { return d.epp[it.id]; }).map(function (it) { return it.label; })); }, []).concat(d.eppOtros ? [d.eppOtros] : []).join(', ') || '—') + '</p>' +
+      tit(M.esBPNuevo(d) ? 'III. Requisitos de seguridad' : 'IV. Requisitos de seguridad', P.indexOf('requisitos')) + lista(M.configPetar(d).requisitos, d.requisitos);
+    if (d.tipos.caliente) h += tit(M.esBPNuevo(d) ? 'IV. Trabajo en caliente' : 'V. Trabajo en caliente', P.indexOf('caliente')) + lista(M.configPetar(d).caliente, d.caliente) +
       '<p class="nota">Controles adicionales:</p>' + lista(M.configPetar(d).adicionales, d.adicionales) + '<div class="datos">' + f('Vigía caliente', d.vigias && d.vigias.caliente ? d.vigias.caliente.nombre : '') + '</div>';
-    if (d.tipos.altura) h += tit('V. Trabajo en altura', P.indexOf('altura')) + lista(C.petar.altura, d.altura) +
+    if (d.tipos.altura) h += tit(M.esBPNuevo(d) ? 'IV. Trabajo en altura' : 'V. Trabajo en altura', P.indexOf('altura')) + lista(C.petar.altura, d.altura) +
       (d.escaleras.usa === 'si' ? '<p class="nota">Uso de escaleras (bloque sugerido):</p>' + lista(C.petar.escaleras, d.escaleras) : '<div class="datos">' + f('Uso de escalera', sn(d.escaleras.usa)) + '</div>');
-    if (d.tipos.peligrosos) h += tit('V. Materiales peligrosos', P.indexOf('peligrosos')) + '<div class="datos">' + f('Productos', d.quimicos.productos) +
+    if (d.tipos.peligrosos) h += tit(M.esBPNuevo(d) ? 'IV. Materiales peligrosos' : 'V. Materiales peligrosos', P.indexOf('peligrosos')) + '<div class="datos">' + f('Productos', d.quimicos.productos) +
       f('¿Inflamables?', sn(d.quimicos.inflamable)) + (M.calienteConInflamables(d) ? f('LEL medido', d.quimicos.lel ? d.quimicos.lel + ' %' : 'Sin medición') : '') + '</div>' +
       lista(C.petar.peligrosos, d.peligrosos);
     if (d.tipos.caliente || d.tipos.altura || d.tipos.peligrosos) h += '<div class="datos">' + f('Fotografías de evidencia', String(M.totalFotos(d))) +
       (M.fotosFaltantes(d).length ? f('Evidencias pendientes', String(M.fotosFaltantes(d).length)) : '') + '</div>';
     h += tit('VI. Emergencias', P.indexOf('emergencia')) + '<div class="datos">' + f('Encargado de sede', m.encargadoSede) + f('Supervisor / prevencionista', m.supervisorPrevencionista) +
-      f('Rutas libres', sn(m.rutasLibres)) + f('Rutas indicadas', sn(m.rutasIndicadas)) + f('Contacto SST', m.contacto + ' · ' + m.telefono) + (M.esBPNuevo(d) ? f('Teléfono encargado', m.telefonoEncargado) : '') + '</div>';
+      f('Rutas libres', sn(m.rutasLibres)) + f('Rutas indicadas', sn(m.rutasIndicadas)) + f(M.esBPNuevo(d) ? 'Contacto SST' : 'Contacto de emergencia', m.contacto + ' · ' + m.telefono) + (M.esBPNuevo(d) ? f('Teléfono encargado', m.telefonoEncargado) : '') + '</div>';
     if (d.estado !== 'BORRADOR') {
       h += tit('Autorización', undefined) + '<div class="datos">' + f('Participantes', d.participantes.map(function (x) { return x.nombre; }).join(', ')) +
         M.configPetar(d).firmasAutorizacion.map(function (a) { return f(a.cargo, d.autorizacion[a.clave].nombre); }).join('') + '</div>';
