@@ -1,5 +1,19 @@
 # ATS y PETAR — Grupo Pana · Multisede
 
+## v09 · Nuevo PETAR basado en el formato de referencia de SST (para validar)
+
+En la rama `petar-formato-referencia-v09`, **solo los PETAR nuevos** usan el perfil `bp-v2`. Los PETAR `bp-v1` (v08), `carroceria-v1` y documentos anteriores mantienen su formato y preguntas al abrirse o regenerarse.
+
+- **I. Descripción:** fecha, horas, sede, ATS obligatorio y vinculado, tipo de trabajo calculado desde las tareas ATS, descripción y lugar.
+- **II. EPP:** selección diferenciada para caliente y altura, protección respiratoria/auditiva y guantes según la actividad. El PDF muestra tanto casillas marcadas como no marcadas.
+- **III. Requisitos:** se conservan los ocho controles críticos y se ajusta la verificación del espacio y las actividades vecinas.
+- **IV. Alto riesgo:** para caliente, las primeras cuatro preguntas del modelo (radio 12 m, extintor PQS 9 kg, equipos eléctricos y biombos); se **conservan** los controles críticos sobre combustible en carrocerías, LEL, extracción, vigía y adicionales. Para altura y materiales peligrosos se conservan los controles actuales, porque el modelo recibido no desarrolla esas preguntas.
+- **Emergencias:** el modelo de referencia incluye tsunami (con respuesta N/A cuando no aplica), elimina trípode de la lista del perfil nuevo e incorpora teléfonos diferenciados de SST y del encargado de sede. Ambos deben completarse en los nuevos permisos. Configurables para la sede en Área SST → Ajustes; no se publican números personales en el repositorio.
+- **Autorización, durante el trabajo y cierre:** se conservan firmas de supervisor, responsable y ejecutante, el registro de verificaciones incorpora DNI de 8 dígitos y la descarga PDF registra la verificación y cierre.
+- **Trazabilidad:** historial, estados y validación del ATS siguen obligatorios. Se mantiene el envío al flujo configurado y el almacenamiento local.
+
+**Revisar con SST antes de fusionar a `main` o utilizarlo como permiso operativo:** el criterio interno de distancia 12 m y extintor de 9 kg; controles de altura aún pendientes del modelo; números reales de emergencias por sede; lista definitiva de riesgos y EPP; funcionamiento en celular y en PDF. Pruebas agregadas: `node tests/petar_v09.cjs`. Esta rama no está publicada automáticamente.
+
 ## v08 · ATS precargado desde el catálogo de tareas B&P
 
 Objetivo: reducir el tiempo de llenado en campo (40–45 min medidos con la v07.4) sin quitar controles. El tiempo nuevo debe medirse en campo.

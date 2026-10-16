@@ -1,0 +1,56 @@
+/* Ejecutar: node tests/petar_v09.cjs. Datos ficticios y sin red. */
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+const root=path.join(__dirname,'..');
+const w={jspdf:require(path.join(root,'jspdf.umd.min.js'))};
+const ctx=vm.createContext({window:w,document:{addEventListener(){}},console,Date,Math,Uint8Array,setTimeout,clearTimeout});
+for(const f of ['config.js','catalogo_bp.js','modelo.js','ui.js','pdf.js'])vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),ctx);
+const src=fs.readFileSync(path.join(root,'app.js'),'utf8');
+assert(src.includes('window.App = { estado: st };'));
+vm.runInContext(src.replace('window.App = { estado: st };','window.App = { estado: st, descripcion: fPDescripcion, epp: fPEpp, caliente: fPCaliente, emergencia: fPEmergencia, resumen: resumen };'),ctx);
+const C=w.SST_CONFIG,M=w.Modelo,A=w.App,u={nombre:'TECNICO FICTICIO',cargo:'Técnico'};
+C.sede='Ate';C.sedeCodigo='ATE';C.modoPrueba=true;
+const a=M.nuevoATS('ATS-FICTICIO',u);
+a.permisos.caliente=true;a.permisos.altura=true;
+a.generales.tarea='Soldadura y trabajo elevado de prueba';
+a.generales.ubicacion='Bahía de prueba';a.generales.areaContratista='B&P';
+a.personal=[{nombre:u.nombre,dni:'12345678',firma:'FIRMA-TEST'}];
+const p=M.nuevoPETARBP('PETAR-FICTICIO',u,a),cfg=M.configPetar(p);
+assert.equal(p.perfilPetar,'bp-v2');assert.equal(cfg,C.petarBPv2);assert(M.esBPNuevo(p));
+assert.equal(p.descripcion.atsRef,a.numero);assert(p.tipos.caliente&&p.tipos.altura);
+assert.deepEqual(Array.from(cfg.caliente.slice(0,4),x=>x.id),['c_radio','c_extintor','c_herramientas','c_biombos']);
+assert(cfg.caliente.some(x=>x.id==='c_lel'));
+assert(cfg.caliente.some(x=>x.id==='c_ventilacion'));
+assert(cfg.emergencias.includes('Tsunami'));
+assert(!cfg.equiposEmergencia.some(x=>x.includes('Trípode')));
+assert(A.epp(p).includes('Trabajo en caliente'));
+assert(A.epp(p).includes('Trabajo en altura'));
+assert(A.caliente(p).includes('Controles críticos complementarios'));
+assert(A.emergencia(p).includes('emergencia.telefonoEncargado'));
+assert(A.emergencia(p).includes('Teléfono de SST'));
+cfg.caliente.forEach(x=>p.caliente[x.id]='si');
+cfg.adicionales.forEach(x=>p.adicionales[x.id]='si');
+p.vigias.caliente.nombre='VIGIA FICTICIO';
+assert.equal(M.validarPaso(p,'caliente').length,0);
+p.caliente.c_radio='no';
+assert(M.bloqueos(p).some(x=>x.includes('12 metros')));
+p.caliente.c_radio='si';
+p.emergencia.encargadoSede='ENCARGADO FICTICIO';p.emergencia.supervisorPrevencionista='SST FICTICIO';
+p.emergencia.contacto='SST FICTICIO';p.emergencia.telefono='900000001';
+p.emergencia.rutasLibres='si';p.emergencia.rutasIndicadas='si';
+for(const x of cfg.emergencias)p.emergencia.emergencias[x]='na';
+for(const x of cfg.equiposEmergencia)p.emergencia.equipos[x]='si';
+assert(M.validarPaso(p,'emergencia').some(x=>x.includes('teléfono del encargado')));
+p.emergencia.telefonoEncargado='900000002';
+assert.equal(M.validarPaso(p,'emergencia').length,0);
+const previo=Object.assign({},p,{perfilPetar:'bp-v1'});
+assert.equal(M.configPetar(previo),C.petarBP);
+assert(!M.configPetar(previo).emergencias.includes('Tsunami'));
+p.verificaciones.push({cargo:'Verificador',nombre:'VERIFICADOR FICTICIO',dni:'87654321',fechaHora:new Date().toISOString(),firma:'',observaciones:''});
+const raw=w.DocPDF.generar(p).output();
+const zlib=require('node:zlib');
+const pdf=Array.from(raw.matchAll(/stream\\r?\\n([\\s\\S]*?)\\r?\\nendstream/g)).map(m=>{
+  try{return zlib.inflateSync(Buffer.from(m[1],'binary')).toString('latin1')}
+  catch{return m[1]}
+}).join('\\n');
+assert(pdf.includes('87654321'));assert(pdf.includes('900000002'));
+console.log('OK: PETAR v09, ATS vinculado, EPP, controles críticos, emergencia, DNI verificador, PDF y compatibilidad v08.');
