@@ -329,7 +329,7 @@
 
   function petar(d, fotos) {
     if (window.Modelo.normalizar) window.Modelo.normalizar(d);
-    var L = new Lienzo(d), s = d.descripcion, idx = indiceFotos(d, fotos);
+    var L = new Lienzo(d), s = d.descripcion, idx = indiceFotos(d, fotos), nuevo = window.Modelo.esBPNuevo(d);
     L.banda('I. DESCRIPCIÓN DEL TRABAJO');
     L.fila([['Fecha', fmtF(s.fecha), 0.2], ['Hora inicial', s.horaInicio, 0.15], ['Hora final', s.horaFin, 0.15], ['ATS de referencia', s.atsRef, 0.25], ['Sede', s.sede, 0.25]]);
     L.fila([['Área de Grupo Pana', s.ejecutaNombre, 1]]);
@@ -343,32 +343,39 @@
     else L.nota('II. Monitoreo del ambiente de trabajo: aplica a espacios confinados y materiales peligrosos; no habilitado en esta versión.');
     L.sep();
 
-    L.banda('III. EQUIPOS DE PROTECCIÓN PERSONAL (EPP)');
+    L.banda(nuevo ? 'II. EQUIPOS DE PROTECCIÓN PERSONAL (EPP)' : 'III. EQUIPOS DE PROTECCIÓN PERSONAL (EPP)');
     window.Modelo.catalogoEpp(d).forEach(function (g) {
-      var marcados = g.items.filter(function (it) { return d.epp[it.id]; });
-      if (!marcados.length) return;
+      if (nuevo && g.tipo && !d.tipos[g.tipo] && !g.items.some(function (it) { return d.epp[it.id]; })) return;
+      var items = nuevo ? g.items : g.items.filter(function (it) { return d.epp[it.id]; });
+      if (!items.length) return;
       L.nota(g.grupo, TINTA);
-      L.casillas(marcados.map(function (it) { return [it.label, true]; }), 3);
+      L.casillas(items.map(function (it) { return [it.label, !!d.epp[it.id]]; }), 3);
     });
     if (d.eppOtros) L.texto('Otros EPP', d.eppOtros);
     L.sep();
 
-    L.banda('IV. REQUISITOS DE SEGURIDAD (SUPERVISOR RESPONSABLE DEL TRABAJO)');
+    L.banda(nuevo ? 'III. REQUISITOS DE SEGURIDAD' : 'IV. REQUISITOS DE SEGURIDAD (SUPERVISOR RESPONSABLE DEL TRABAJO)');
     L.tabla([{ t: 'Requisito', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
       window.Modelo.configPetar(d).requisitos.map(function (r) { return [r.label, sn(d.requisitos[r.id])]; }));
     L.sep();
 
     if (d.tipos.caliente) {
-      L.banda('V. TRABAJO DE ALTO RIESGO — TRABAJO EN CALIENTE (SUPERVISOR DEL TRABAJO)');
+      L.banda(nuevo ? 'IV. TRABAJOS DE ALTO RIESGO — EN CALIENTE' : 'V. TRABAJO DE ALTO RIESGO — TRABAJO EN CALIENTE (SUPERVISOR DEL TRABAJO)');
+      var caliente = window.Modelo.configPetar(d).caliente;
       L.tabla([{ t: 'Verificación', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
-        window.Modelo.configPetar(d).caliente.map(function (r) { return [r.label, sn(d.caliente[r.id])]; }));
+        (nuevo ? caliente.slice(0, 4) : caliente).map(function (r) { return [r.label, sn(d.caliente[r.id])]; }));
+      if (nuevo && caliente.length > 4) {
+        L.nota('Controles críticos complementarios');
+        L.tabla([{ t: 'Verificación', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
+          caliente.slice(4).map(function (r) { return [r.label, sn(d.caliente[r.id])]; }));
+      }
       L.tabla([{ t: 'Control adicional', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
         window.Modelo.configPetar(d).adicionales.map(function (r) { return [r.label, sn(d.adicionales[r.id])]; }));
       L.sep();
     }
 
     if (d.tipos.altura) {
-      L.banda('V. TRABAJO DE ALTO RIESGO — TRABAJO EN ALTURA (SUPERVISOR DEL TRABAJO)');
+      L.banda(nuevo ? 'IV. TRABAJOS DE ALTO RIESGO — EN ALTURA' : 'V. TRABAJO DE ALTO RIESGO — TRABAJO EN ALTURA (SUPERVISOR DEL TRABAJO)');
       L.tabla([{ t: 'Verificación', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
         C.petar.altura.map(function (r) { return [r.label, sn(d.altura[r.id])]; }));
       L.nota(C.petar.notaAltura);
@@ -418,7 +425,11 @@
       ['¿Las rutas de acceso y salida están libres de obstáculos?', sn(m.rutasLibres)],
       ['¿Se indicó a los trabajadores involucrados las rutas de evacuación y puntos de reunión en caso de emergencia?', sn(m.rutasIndicadas)]
     ]);
-    L.fila([['Teléfono de contacto para emergencias', m.telefono, 0.5], ['Persona de contacto para emergencias', m.contacto, 0.5]]);
+    if (nuevo) {
+      L.fila([['Contacto SST', m.contacto, 0.4], ['Teléfono SST', m.telefono, 0.3], ['Teléfono encargado sede', m.telefonoEncargado || '', 0.3]]);
+    } else {
+      L.fila([['Teléfono de contacto para emergencias', m.telefono, 0.5], ['Persona de contacto para emergencias', m.contacto, 0.5]]);
+    }
     if (d.observaciones) L.texto('Observaciones', d.observaciones);
     L.sep();
 
@@ -438,8 +449,13 @@
 
     L.banda('DURANTE EL TRABAJO');
     if (d.verificaciones.length) {
-      L.tabla([{ t: 'Verificador (cargo)', w: 0.22 }, { t: 'Apellidos y nombres', w: 0.26 }, { t: 'Hora', w: 0.1, a: 'center' }, { t: 'Observaciones de la verificación', w: 0.42 }],
-        d.verificaciones.map(function (v) { return [v.cargo, v.nombre, horaDe(v.fechaHora), v.observaciones]; }));
+      if (nuevo) {
+        L.tabla([{ t: 'Cargo', w: 0.17 }, { t: 'Apellidos y nombres', w: 0.24 }, { t: 'DNI', w: 0.13 }, { t: 'Hora', w: 0.1, a: 'center' }, { t: 'Observaciones', w: 0.36 }],
+          d.verificaciones.map(function (v) { return [v.cargo, v.nombre, v.dni || '', horaDe(v.fechaHora), v.observaciones]; }));
+      } else {
+        L.tabla([{ t: 'Verificador (cargo)', w: 0.22 }, { t: 'Apellidos y nombres', w: 0.26 }, { t: 'Hora', w: 0.1, a: 'center' }, { t: 'Observaciones de la verificación', w: 0.42 }],
+          d.verificaciones.map(function (v) { return [v.cargo, v.nombre, horaDe(v.fechaHora), v.observaciones]; }));
+      }
       L.firmas(d.verificaciones.map(function (v, i) { return { titulo: 'V°B° verificación ' + (i + 1), nombre: v.nombre, detalle: v.cargo, firma: v.firma }; }), 4);
     } else L.nota('Sin verificaciones registradas durante el trabajo.');
     L.sep();
