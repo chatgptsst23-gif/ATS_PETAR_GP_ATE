@@ -45,7 +45,12 @@ assert.equal(M.validarPaso(p,'emergencia').length,0);
 const previo=Object.assign({},p,{perfilPetar:'bp-v1'});
 assert.equal(M.configPetar(previo),C.petarBP);
 assert(!M.configPetar(previo).emergencias.includes('Tsunami'));
-p.verificaciones.push({cargo:'Verificador',nombre:'VERIFICADOR FICTICIO',dni:'87654321',fechaHora:new Date().toISOString(),firma:'FIRMA-TEST',observaciones:''});
-const pdf=w.DocPDF.generar(p).output();
+p.verificaciones.push({cargo:'Verificador',nombre:'VERIFICADOR FICTICIO',dni:'87654321',fechaHora:new Date().toISOString(),firma:'',observaciones:''});
+const raw=w.DocPDF.generar(p).output();
+const zlib=require('node:zlib');
+const pdf=Array.from(raw.matchAll(/stream\\r?\\n([\\s\\S]*?)\\r?\\nendstream/g)).map(m=>{
+  try{return zlib.inflateSync(Buffer.from(m[1],'binary')).toString('latin1')}
+  catch{return m[1]}
+}).join('\\n');
 assert(pdf.includes('87654321'));assert(pdf.includes('900000002'));
 console.log('OK: PETAR v09, ATS vinculado, EPP, controles críticos, emergencia, DNI verificador, PDF y compatibilidad v08.');
