@@ -581,6 +581,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   transition: opacity .35s ease, transform .35s ease;
 }
 .aviso--mal { background: var(--mal); }
+.aviso--aviso { background: #8a5700; color: #fff; }
 .aviso--sale { opacity: 0; transform: translateY(8px); }
 
 /* --------------------------- Pie --------------------------------- */

@@ -1,5 +1,18 @@
 # ATS y PETAR — Grupo Pana · Multisede
 
+## v13 · Envío directo compartido a SST
+
+El titular autorizó expresamente incorporar el enlace firmado en la página pública. `envioDirecto: true` usa la conexión de `config.js` en todos los dispositivos, sin pedir URL ni clave adicional. Los valores locales de versiones anteriores se conservan, pero no sustituyen la conexión compartida.
+
+- Se envía al registrar el ATS, autorizar el PETAR y registrar su cierre, según `enviarAl`.
+- Ajustes muestra que la conexión es compartida y mantiene el botón de prueba.
+- HTTP 202 se presenta como **Aceptado por Power Automate · correo sin confirmar**. Solo una respuesta coincidente con `ok`, `numero`, `idEnvio` y `archivo` confirma la recepción final.
+- No se reenvían automáticamente documentos antiguos o solicitudes sin confirmar, para evitar duplicados.
+- El destinatario del correo y la carpeta de destino se administran en Power Automate.
+- Se mantiene el modo anterior por dispositivo si se desactiva `envioDirecto`; en ese modo siguen siendo obligatorias la URL y la clave del área.
+
+Pruebas: `node tests/v13.cjs` y las siete suites anteriores (sin red).
+
 ## v12.1 · Recordatorios en inicio (28-10-2026)
 
 La pantalla de inicio muestra la indicación operativa solicitada por el área: llenar el ATS semanalmente; para trabajos en caliente o altura, completar primero el ATS y después el PETAR; al terminar, validar el orden del lugar de trabajo. Este aviso no cambia automáticamente las fechas ni la vigencia del PETAR.
@@ -217,7 +230,7 @@ El envío mantiene el contrato operativo de v06 y usa `version: "v07"`:
 - estados confirmado, sin confirmar, rechazado y pendiente;
 - sin reintento automático cuando la recepción no puede demostrarse.
 
-La URL del flujo se guarda localmente en `flujoUrl_v05` y la clave del área en `claveArea_v06`. Son configuraciones **por dispositivo y navegador**: configurarlas en una PC no las sincroniza automáticamente con un celular. No deben escribirse URLs reales ni claves reales en el repositorio.
+En el modo anterior (con `envioDirecto: false`), la URL del flujo se guarda localmente en `flujoUrl_v05` y la clave del área en `claveArea_v06`. Son configuraciones **por dispositivo y navegador**: configurarlas en una PC no las sincroniza automáticamente con un celular. La v13 usa la excepción de publicación directa autorizada por el titular; no se publican otras claves.
 
 ## Pruebas
 

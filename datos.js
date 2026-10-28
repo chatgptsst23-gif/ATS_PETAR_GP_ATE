@@ -149,7 +149,15 @@
 
   var Envio = {
     configurado: function () {
-      return !!(window.SST_CONFIG.flujoUrl || '').trim() && !!(window.SST_CONFIG.claveArea || '').trim();
+      var C = window.SST_CONFIG;
+      return !!(C.flujoUrl || '').trim() && (C.envioDirecto === true || !!(C.claveArea || '').trim());
+    },
+
+    aplicarConfiguracionLocal: function (url, clave) {
+      var C = window.SST_CONFIG;
+      if (C.envioDirecto === true) return;
+      if (url) C.flujoUrl = url;
+      if (clave) C.claveArea = clave;
     },
 
     enviar: function (doc, momento) {
@@ -164,7 +172,7 @@
       }
       if (!Envio.configurado()) {
         return Promise.resolve(agregarRegistro(doc, registro, 'sin_flujo',
-          'Falta configurar la URL del flujo y la clave del área en Ajustes.'));
+          C.envioDirecto ? 'La conexión compartida no está disponible. Comunícate con SST.' : 'Falta configurar la URL del flujo y la clave del área en Ajustes.'));
       }
       if (navigator.onLine === false) {
         return Promise.resolve(agregarRegistro(doc, registro, 'pendiente',
@@ -220,6 +228,12 @@
             return agregarRegistro(doc, registro, 'confirmado', 'Recibido por SST ✓ — ' + registro.archivo);
           }
 
+          if (respuesta.status === 202) {
+            registro.aceptadoPorFlujo = true;
+            return agregarRegistro(doc, registro, 'no_confirmado',
+              'Aceptado por Power Automate. La entrega del correo y el archivo aún no están confirmados.');
+          }
+
           return agregarRegistro(doc, registro, 'no_confirmado', 'Envío intentado · recepción sin confirmar');
         });
       }).catch(function () {
@@ -238,3 +252,4 @@
   window.Store = Store;
   window.Envio = Envio;
 })();
+

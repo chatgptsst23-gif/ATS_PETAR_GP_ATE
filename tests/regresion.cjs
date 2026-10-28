@@ -30,7 +30,9 @@ const user={nombre:'Usuario Prueba',cargo:'Supervisor'};
 const respuesta=(status,obj)=>({status,ok:status>=200&&status<300,text:async()=>typeof obj==='string'?obj:JSON.stringify(obj)});
 const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CLAVE_FICTICIA_V06';};
 (async()=>{
-  assert.equal(C.flujoUrl,''); assert.equal(C.claveArea,''); assert.equal(C.modoPrueba,false); assert.equal(C.version,'v12 (contactos y formularios simplificados)');
+  // Esta suite conserva la cobertura del modo local anterior. El modo directo se prueba en v13.cjs.
+  assert.equal(C.envioDirecto,true); C.envioDirecto=false; C.flujoUrl='';
+  assert.equal(C.flujoUrl,''); assert.equal(C.claveArea,''); assert.equal(C.modoPrueba,false); assert.equal(C.version,'v13 (envío directo a SST)');
   assert.equal(C.sedes.map(s=>s.codigo+':'+s.nombre).join(','),'MON:Montero,SQO:Surquillo,SCO:Surco,SMG:San Miguel,CAL:Callao,ATE:Ate,MOQ:Moquegua,TAC:Tacna');
 
   const p=M.nuevoPETAR('PETAR-PRUEBA',user);

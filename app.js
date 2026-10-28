@@ -341,7 +341,7 @@
       app.innerHTML = '<section class="bloque">' + marcaHTML() +
         '<div class="saludo"><div><strong>' + esc(st.usuario.nombre) + '</strong><small>' + esc(st.usuario.cargo) + '</small></div>' +
         '<button class="enlace" data-accion="cambiar-usuario">Cambiar</button></div>' +
-        (window.Envio.configurado() ? '' :
+        (window.Envio.configurado() ? (C.envioDirecto ? '<p class="nota">Envío automático a SST activado. No necesitas configurar este dispositivo.</p>' : '') :
           '<div class="alerta alerta--aviso">Envío a SST no configurado: los documentos se generan, pero no se envían por correo ni se guardan en SharePoint. <button class="enlace" data-accion="ir-ajustes">Configurar</button></div>') +
         '<section class="recordatorios-inicio" aria-labelledby="recordatoriosTitulo"><h2 id="recordatoriosTitulo">Antes de iniciar el trabajo</h2>' +
           '<ul><li>Recuerda llenar el <strong>ATS de manera semanal</strong>.</li>' +
@@ -363,6 +363,7 @@
 
   function textoEnvio(e) {
     if (!e) return '';
+    if (e.resultado === 'no_confirmado' && e.aceptadoPorFlujo) return 'Aceptado por Power Automate · correo sin confirmar';
     return ({ confirmado: 'confirmado ✓', no_confirmado: 'sin confirmar', enviado: 'sin confirmar',
       rechazado: 'rechazado', pendiente: 'pendiente', error: 'pendiente', sin_flujo: 'pendiente',
       prueba: 'prueba local' }[e.resultado] || e.resultado);
@@ -935,11 +936,12 @@
       '<button class="btn btn--fantasma btn--ancho" data-accion="guardar-sede-ajustes">Cambiar sede del dispositivo</button>' +
       contactosHTML() +
       '<h2 class="h-seccion">Envío a SST (Power Automate)</h2>' +
+      (C.envioDirecto ? '<div class="alerta alerta--ok">Envío directo a SST configurado para todos los dispositivos. No necesitas ingresar una URL ni una clave del área.</div>' :
       '<p class="intro">La URL y la clave se guardan únicamente en este dispositivo. Si usas otro celular o navegador, debes configurarlas una vez en ese dispositivo. No las publiques en el repositorio.</p>' +
       campo('URL del flujo', '<textarea id="aUrl" rows="4" placeholder="<URL_DEL_FLUJO>">' + esc(C.flujoUrl) + '</textarea>') +
       '<div class="campo"><label for="aClave">Clave del área</label><input id="aClave" type="password" autocomplete="off" value="' + esc(C.claveArea || '') + '" placeholder="<CLAVE_DEL_AREA>">' +
       '<label class="confirmacion" for="aMostrarClave"><input id="aMostrarClave" type="checkbox" data-accion="mostrar-clave"> Mostrar clave</label></div>' +
-      '<button class="btn btn--principal btn--ancho" data-accion="guardar-conexion">Guardar conexión</button>' +
+      '<button class="btn btn--principal btn--ancho" data-accion="guardar-conexion">Guardar conexión</button>') +
       '<button class="btn btn--fantasma btn--ancho" data-accion="probar-envio"' + (window.Envio.configurado() ? '' : ' disabled') + '>Enviar un documento de prueba</button>' +
       '<p class="nota">La confirmación solo se muestra cuando el flujo devuelve una respuesta válida y coincidente. Un envío sin confirmar no se reintenta automáticamente.</p>' +
       '<h2 class="h-seccion">Seguridad de Ajustes</h2>' + campo('Nueva clave SST', '<input id="sstNuevaClave" type="password" autocomplete="new-password" placeholder="Mínimo 6 caracteres">') + campo('Confirmar nueva clave SST', '<input id="sstNuevaClave2" type="password" autocomplete="new-password" placeholder="Repite la nueva clave">') + '<button class="btn btn--fantasma btn--ancho" data-accion="cambiar-clave-sst">Cambiar clave de acceso SST</button>' +
@@ -969,7 +971,7 @@
     UI.aviso(C.modoPrueba || d.prueba ? 'Guardando prueba local…' : 'Intentando envío a SST…');
     return window.Envio.enviar(d, momento).then(function (r) {
       return window.Store.guardar(d).then(function () {
-        UI.aviso(r.detalle || textoEnvio(r), r.resultado === 'confirmado' ? 'ok' : 'mal');
+        UI.aviso(r.detalle || textoEnvio(r), r.resultado === 'confirmado' ? 'ok' : r.aceptadoPorFlujo ? 'aviso' : 'mal');
         return r;
       });
     });
@@ -1204,6 +1206,7 @@
         window.Store.pref('contactosPorSede_v073', st.contactosPorSede).then(function () { UI.aviso('Datos guardados para nuevos documentos de ' + C.sede, 'ok'); }).catch(errorGuardado);
         break;
       case 'guardar-conexion':
+        if (!st.sstAutorizado || C.envioDirecto) return;
         C.flujoUrl = $('#aUrl').value.trim();
         C.claveArea = $('#aClave').value.trim();
         Promise.all([
@@ -1323,7 +1326,7 @@
   }
 
   function probarEnvio() {
-    if (!window.Envio.configurado()) { UI.aviso('Configura la URL y la clave del área.', 'mal'); return Promise.resolve(); }
+    if (!window.Envio.configurado()) { UI.aviso(C.envioDirecto ? 'La conexión compartida no está disponible. Comunícate con SST.' : 'Configura la URL y la clave del área.', 'mal'); return Promise.resolve(); }
     var ficticio = { nombre: 'USUARIO FICTICIO', cargo: 'PRUEBA DE CONEXIÓN' };
     var prueba = M.nuevoATS('ATS-PRUEBA-CONEXION-' + Date.now().toString().slice(-6), ficticio);
     prueba.prueba = false;
@@ -1334,7 +1337,7 @@
     prueba.generales.supervisor = ficticio.nombre;
     prueba.pasos = [{ paso: 'Prueba de conexión', peligro: 'Dato ficticio', riesgo: 'Dato ficticio', evento: 'Dato ficticio', critico: 'no', medidas: 'Dato ficticio', responsable: ficticio.nombre }];
     return window.Envio.enviar(prueba, 'prueba_conexion').then(function (r) {
-      UI.aviso(r.detalle || textoEnvio(r), r.resultado === 'confirmado' ? 'ok' : 'mal');
+      UI.aviso(r.detalle || textoEnvio(r), r.resultado === 'confirmado' ? 'ok' : r.aceptadoPorFlujo ? 'aviso' : 'mal');
       return r;
     });
   }
@@ -1395,8 +1398,7 @@
     }).then(function (r) {
       // La URL anterior contenía una clave publicada; no se reutiliza.
       window.Store.pref('flujoUrl', '').catch(errorGuardado);
-      if (r[1]) C.flujoUrl = r[1];
-      if (r[2]) C.claveArea = r[2];
+      window.Envio.aplicarConfiguracionLocal(r[1], r[2]);
       st.claveAjustesHash = r[3] || r[4] || '';
       st.usuario = r[0] || null;
       if (r[5]) aplicarSede(r[5]);

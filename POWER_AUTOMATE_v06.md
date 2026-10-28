@@ -1,5 +1,7 @@
 # Power Automate — configuración v06
 
+> Guía del modo local anterior. La v13 usa una conexión directa compartida cuya publicación fue autorizada expresamente por el titular. Consulta la sección v13 del README. La clave adicional descrita aquí solo aplica si el flujo la valida.
+
 Esta guía usa únicamente marcadores. **No escribas una URL firmada, una firma de autenticación ni una clave real en el repositorio.**
 
 ## 1. Invalidar la URL anterior
@@ -116,3 +118,4 @@ Si la app muestra **sin confirmar** pero el correo llegó, revisar especialmente
 ## Nota de licencia
 
 Las acciones **Respuesta** y **Terminar** pertenecen al conector de solicitudes HTTP. Debe verificarse en el entorno real si el tenant y el tipo de flujo utilizados exigen licencia adicional. Esta guía no asume que esas acciones estén cubiertas por la licencia actual.
+

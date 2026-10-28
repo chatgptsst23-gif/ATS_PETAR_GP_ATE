@@ -26,7 +26,7 @@ window.SST_CONFIG = {
   sede: '',
   sedeCodigo: '',
   areaPorDefecto: 'Planchado y pintura (B&P)',
-  version: 'v12 (contactos y formularios simplificados)',
+  version: 'v13 (envío directo a SST)',
   encargadoSedePorDefecto: 'Sandro Vallebuona',
   contactosEmergencia: [
     { nombre: 'Silvia Romero Cuellar', telefono: '954315442', area: 'SST' },
@@ -34,10 +34,11 @@ window.SST_CONFIG = {
     { nombre: 'Marilin Tejeda Guadalupe', telefono: '981118737', area: 'Trabajadora Social' }
   ],
 
-  /* URL del flujo de Power Automate ("Cuando se recibe una solicitud HTTP").
-     Vacía = la app funciona igual, pero no envía correo ni guarda en SharePoint. */
-  flujoUrl: '',
-  claveArea: '', /* Solo se carga desde Ajustes; nunca publicar una clave real aquí. */
+  /* Configuración compartida: publicación directa autorizada por el titular.
+     En modo directo, las preferencias antiguas de cada dispositivo no la sustituyen. */
+  envioDirecto: true,
+  flujoUrl: 'https://defaultd9dd2d8ba0324ef5885ff9e7fa6789.56.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/01/workflows/32c6eb63182b409ea7380faf8d1c6e5c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=dUX0IYyYXs7ZUxe4ke-o62mlODfIURmXxz4XmJbGCTg',
+  claveArea: '', /* Este flujo se invoca mediante su URL firmada, sin clave adicional local. */
   modoPrueba: false,
 
   /* Momentos en que se envía el documento a SST */
