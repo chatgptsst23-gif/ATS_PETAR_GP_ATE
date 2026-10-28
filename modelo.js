@@ -1,5 +1,5 @@
 /* =====================================================================
-   MODELO — window.Modelo · v11
+   MODELO — window.Modelo · v12
    Estructura, validación y estados del ATS y del PETAR.
    Lógica pura: no toca la interfaz ni el almacenamiento.
    ===================================================================== */
@@ -40,7 +40,7 @@
     nuevoATS: function (numero, usuario) {
       return {
         id: 'd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-        tipo: 'ATS', catalogoEppVersion: 2, prueba: !!C.modoPrueba, numero: numero, estado: 'BORRADOR',
+        tipo: 'ATS', formularioVersion: 12, catalogoEppVersion: 2, prueba: !!C.modoPrueba, numero: numero, estado: 'BORRADOR',
         creadoEn: new Date().toISOString(), actualizadoEn: '',
         usuario: { nombre: usuario.nombre, cargo: usuario.cargo },
         generales: {
@@ -49,7 +49,7 @@
         },
         permisos: {},
         permisoOtro: '',
-        pasos: Modelo.precargaATS() ? [] : [{ paso: '', evento: '', critico: '', medidas: '', responsable: '' }],
+        pasos: Modelo.precargaATS() ? [] : [{ paso: '', peligro: '', riesgo: '', evento: '', critico: '', medidas: '', responsable: '' }],
         /* v08: tareas del catálogo B&P que precargan el ATS; v11: desactivado (llenado manual) */
         catalogo: Modelo.precargaATS() ? CAT().version : '',
         formato: C.ats.modoLlenado === 'manual' ? 'manual-v11' : '',
@@ -77,7 +77,7 @@
       });
       var p = {
         id: 'd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-        tipo: 'PETAR', catalogoEppVersion: 2, prueba: !!C.modoPrueba, numero: numero, estado: 'BORRADOR',
+        tipo: 'PETAR', formularioVersion: 12, catalogoEppVersion: 2, prueba: !!C.modoPrueba, numero: numero, estado: 'BORRADOR',
         creadoEn: new Date().toISOString(), actualizadoEn: '',
         usuario: { nombre: usuario.nombre, cargo: usuario.cargo },
         descripcion: {
@@ -111,6 +111,7 @@
         bitacora: [{ estado: 'BORRADOR', fechaHora: new Date().toISOString(), usuario: usuario.nombre, comentario: 'Creado' }],
         envios: []
       };
+      Modelo.contactosEmpresa(p);
       if (ats) Modelo.vincularATS(p, ats);
       return p;
     },
@@ -118,8 +119,10 @@
     esCarroceria: function (d) { return !!d && d.tipo === 'PETAR' && ['carroceria-v1', 'bp-v1', 'bp-v2'].indexOf(d.perfilPetar) >= 0; },
     esBP: function (d) { return !!d && d.tipo === 'PETAR' && (d.perfilPetar === 'bp-v1' || d.perfilPetar === 'bp-v2'); },
     configPetar: function (d) {
-      if (d && d.perfilPetar === 'bp-v2') return C.petarBP2;
-      return Modelo.esBP(d) ? C.petarBP : Modelo.esCarroceria(d) ? C.petarCarroceria : C.petar;
+      var cfg = d && d.perfilPetar === 'bp-v2' ? C.petarBP2 : Modelo.esBP(d) ? C.petarBP : Modelo.esCarroceria(d) ? C.petarCarroceria : C.petar;
+      return d && d.formularioVersion >= 12 ? Object.assign({}, cfg, {
+        firmasAutorizacion: cfg.firmasAutorizacion.filter(function (x) { return x.clave !== 'area'; })
+      }) : cfg;
     },
     /* v09: opciones del perfil (sinVigias, sinMonitoreo, sinFotos, soloAutorizacion). */
     opcion: function (d, k) { return !!(d && d.tipo === 'PETAR' && Modelo.configPetar(d)[k]); },
@@ -214,7 +217,7 @@
       Object.keys(p.tipos).forEach(function (t) { if (p.tipos[t]) (cfgBP.eppPorTipo[t] || []).forEach(function (k) { p.epp[k] = true; }); });
       var fin = C.petar.horaFinTurno || '';
       p.descripcion.horaFin = fin && hora() < fin ? fin : '';
-      p.descripcion.lugarTipo = ats.generales.ubicacionTipo || '';
+      p.descripcion.lugarTipo = p.formularioVersion >= 12 ? '' : ats.generales.ubicacionTipo || '';
       p.descripcion.atsPersonal = (ats.personal || []).map(function (x) { return { nombre: x.nombre, dni: x.dni || '' }; });
       /* v10: firmas registradas en el ATS, para reutilizarlas solo con confirmación expresa. */
       p.firmasATS = (ats.personal || []).filter(function (x) { return x.firma; }).map(function (x) { return { nombre: x.nombre, dni: x.dni || '', firma: x.firma, rol: 'personal' }; });
@@ -275,7 +278,7 @@
       p.descripcion.sede = sedeDe(ats);
       p.descripcion.fecha = ats.generales.fecha;
       if (!p.descripcion.tarea) p.descripcion.tarea = ats.generales.tarea;
-      if (!p.descripcion.lugar) p.descripcion.lugar = ats.generales.ubicacion;
+      if (!(p.formularioVersion >= 12) && !p.descripcion.lugar) p.descripcion.lugar = ats.generales.ubicacion;
       if (ats.generales.areaContratista) p.descripcion.ejecutaNombre = ats.generales.areaContratista;
       if (!p.participantes.length) {
         p.participantes = (ats.personal || []).map(function (x) { return firmante({ nombre: x.nombre, dni: x.dni }); });
@@ -323,6 +326,32 @@
       // Solo sugiere equipos; nunca responde requisitos ni copia firmas.
     },
 
+    /* Los contactos se guardan con el documento para conservar su historial. */
+    contactosEmpresa: function (d) {
+      if (!d || d.tipo !== 'PETAR' || !(d.formularioVersion >= 12)) return;
+      var m = d.emergencia;
+      m.encargadoSede = C.encargadoSedePorDefecto;
+      m.contactos = C.contactosEmergencia.map(function (x) { return Object.assign({}, x); });
+      // Compatibilidad con integraciones que aún consumen estos dos campos.
+      m.contacto = m.contactos.map(function (x) { return x.nombre + ' (' + x.area + ')'; }).join(' / ');
+      m.telefono = m.contactos.map(function (x) { return x.telefono; }).join(' / ');
+    },
+
+    actualizarFormulario: function (d) {
+      if (!d || d.formularioVersion >= 12 || d.estado !== 'BORRADOR' || Modelo.tieneFirmas(d)) return d;
+      d.formularioVersion = 12;
+      if (d.tipo === 'PETAR') {
+        Modelo.contactosEmpresa(d);
+        if (d.autoRespuestas && d.autoRespuestas['caliente.c_lel']) {
+          if (d.caliente.c_lel === 'na') d.caliente.c_lel = '';
+          delete d.autoRespuestas['caliente.c_lel'];
+        }
+        delete d.descripcion.lugarTipo;
+      }
+      // El texto combinado antiguo se conserva como referencia; el trabajador lo separa.
+      return d;
+    },
+
     aplicarContactos: function (d, contactos) {
       if (!d || d.estado !== 'BORRADOR' || Modelo.tieneFirmas(d)) return;
       var c = contactos || {};
@@ -332,7 +361,7 @@
       }
       if (!d.supervisorTrabajo.nombre) d.supervisorTrabajo.nombre = c.supervisorTrabajo || '';
       if (!d.autorizacion.supervisor.nombre) d.autorizacion.supervisor.nombre = d.supervisorTrabajo.nombre;
-      if (!d.autorizacion.area.nombre) d.autorizacion.area.nombre = c.responsableArea || '';
+      if (!(d.formularioVersion >= 12) && !d.autorizacion.area.nombre) d.autorizacion.area.nombre = c.responsableArea || '';
       ['encargadoSede', 'supervisorPrevencionista', 'telefono', 'contacto'].forEach(function (k) {
         if (!d.emergencia[k]) d.emergencia[k] = c[k] || '';
       });
@@ -379,6 +408,7 @@
        Los documentos sin sede pertenecen a Ate porque las versiones anteriores eran exclusivas de esa sede. */
     normalizar: function (d) {
       if (!d) return d;
+      Modelo.actualizarFormulario(d);
       if (d.tipo === 'ATS') {
         d.generales = d.generales || {};
         if (!d.generales.sede) d.generales.sede = 'Ate';
@@ -488,7 +518,7 @@
         }
         if (id === 'generales') {
           req(g.tarea, 'Indica la tarea.');
-          req(g.ubicacion, 'Indica la ubicación.');
+          if (!(d.formularioVersion >= 12)) req(g.ubicacion, 'Indica la ubicación.');
           req(g.areaContratista, 'Indica el área de Grupo Pana o la contratista.');
           req(g.fecha, 'Indica la fecha.'); req(g.hora, 'Indica la hora.');
           req(g.lideradoPor, 'Indica quién lidera el ATS.');
@@ -500,7 +530,10 @@
           d.pasos.forEach(function (p, i) {
             var n = 'Paso ' + (i + 1) + ': ';
             req(p.paso, n + 'describe qué se va a hacer.');
-            req(p.evento, n + 'indica el evento indeseado.');
+            if (d.formularioVersion >= 12) {
+              req(p.peligro, n + 'indica el peligro (fuente o situación que puede causar daño).');
+              req(p.riesgo, n + 'indica el riesgo (qué podría ocurrir y qué daño causaría).');
+            } else req(p.evento, n + 'indica el evento indeseado.');
             if (!p.critico) e.push(n + 'marca si es crítico.');
             req(p.medidas, n + 'indica las medidas de control.');
             req(p.responsable, n + 'indica el responsable de implementar los controles.');
@@ -521,7 +554,7 @@
         req(s.atsId, 'El PETAR debe estar vinculado a un ATS registrado.');
         req(s.ejecutaNombre, 'Indica el área de Grupo Pana que ejecuta.');
         req(s.tarea, 'Describe la tarea.');
-        req(s.lugar, 'Indica el lugar específico de la tarea.');
+        if (!(d.formularioVersion >= 12)) req(s.lugar, 'Indica el lugar específico de la tarea.');
         if (d.perfilPetar === 'carroceria-v1' && (!d.tipos.caliente || Object.keys(d.tipos).some(function (k) { return k !== 'caliente' && d.tipos[k]; }))) e.push('Este PETAR cubre únicamente trabajo en caliente de carrocería.');
         if (!Object.keys(d.tipos).some(function (k) { return d.tipos[k]; })) e.push('Marca al menos un tipo de trabajo.');
         if (!Modelo.esBP(d) && !s.capacitacion) e.push('Indica si se llevó a cabo la capacitación previa de los trabajadores.');
@@ -659,7 +692,7 @@
       }
       Modelo.configPetar(d).firmasAutorizacion.forEach(function (a) { f(d.autorizacion[a.clave], a.cargo.toLowerCase()); });
       /* v10: una firma tomada del ATS solo vale para la misma persona que la firmó. */
-      Object.keys(d.autorizacion).forEach(function (k) {
+      Modelo.configPetar(d).firmasAutorizacion.map(function (a) { return a.clave; }).forEach(function (k) {
         var x = d.autorizacion[k];
         if (x && x.firma && x.origenFirma && norm(x.origenFirma.nombre) !== norm(x.nombre)) e.push('La firma de ' + k + ' se tomó del ATS de ' + x.origenFirma.nombre + ' y no corresponde a ' + (x.nombre || 'la persona indicada') + ': vuelve a firmar.');
       });
@@ -684,7 +717,7 @@
       return d.tipo === 'ATS' ? (d.generales.tarea || 'ATS sin tarea') : (d.descripcion.tarea || 'PETAR sin descripción');
     },
     fecha: function (d) { return d.tipo === 'ATS' ? d.generales.fecha : d.descripcion.fecha; },
-    lugar: function (d) { return d.tipo === 'ATS' ? d.generales.ubicacion : d.descripcion.lugar; },
+    lugar: function (d) { return d.formularioVersion >= 12 ? Modelo.sede(d) : d.tipo === 'ATS' ? d.generales.ubicacion : d.descripcion.lugar; },
     etiquetaEstado: function (e) { return (C.estados[e] || { etiqueta: e }).etiqueta; },
     tiposTexto: function (p) {
       return Modelo.configPetar(p).tipos.filter(function (t) { return p.tipos[t.id]; }).map(function (t) { return t.label; }).join(', ');
@@ -701,17 +734,17 @@
       var filas = '';
       if (d.tipo === 'ATS') {
         var g = d.generales;
-        filas = f('Tarea', g.tarea) + f('Ubicación', g.ubicacion) + f('Área de Grupo Pana', g.areaContratista) +
+        filas = f('Tarea', g.tarea) + (d.formularioVersion >= 12 ? '' : f('Ubicación', g.ubicacion)) + f('Área de Grupo Pana', g.areaContratista) +
           f('Fecha y hora', g.fecha + ' ' + g.hora) + f('Liderado por', g.lideradoPor) + f('Supervisor', g.supervisor) +
           f('Personal', d.personal.map(function (x) { return x.nombre; }).join(', ')) +
           f('Pasos críticos', d.pasos.filter(function (p) { return p.critico === 'si'; }).length + ' de ' + d.pasos.length);
       } else {
         var s = d.descripcion;
-        filas = f('Tarea', s.tarea) + f('Lugar', s.lugar) + f('Tipo de trabajo', Modelo.tiposTexto(d)) +
+        filas = f('Tarea', s.tarea) + (d.formularioVersion >= 12 ? '' : f('Lugar', s.lugar)) + f('Tipo de trabajo', Modelo.tiposTexto(d)) +
           f('Fecha / horario', s.fecha + ' · ' + s.horaInicio + ' a ' + s.horaFin) + f('ATS de referencia', s.atsRef) +
           f('Área de Grupo Pana', s.ejecutaNombre) +
           f('Participantes', d.participantes.map(function (x) { return x.nombre; }).join(', ')) +
-          f('Supervisor del trabajo', d.autorizacion.supervisor.nombre) + f('Responsable del área', d.autorizacion.area.nombre) +
+          f('Supervisor del trabajo', d.autorizacion.supervisor.nombre) + (d.formularioVersion >= 12 ? f('Ejecutante del trabajo', d.autorizacion.ejecutante.nombre) : f('Responsable del área', d.autorizacion.area.nombre)) +
           f('Estado', Modelo.etiquetaEstado(Modelo.estadoVisible(d)));
         if (d.cancelacion) filas += f('Motivo de cancelación', d.cancelacion.motivo);
         var obs = Modelo.observados(d);
@@ -727,3 +760,4 @@
 
   window.Modelo = Modelo;
 })();
+

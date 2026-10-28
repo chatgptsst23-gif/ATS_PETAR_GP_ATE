@@ -33,7 +33,7 @@ const hm=A.emergencia(p); assert(!hm.includes('Trípode')); assert(!hm.includes(
 // 5. Firmas: solo autorización; participantes del ATS sin firma en el PETAR
 
 const fe=M.validarFirmas(p); assert(!fe.some(x=>x.includes('participante')||x.includes('vigía')||x.includes('sección VII')));
-assert(fe.some(x=>x.includes('supervisor del trabajo'))); assert(fe.some(x=>x.includes('responsable del área')));
+assert(fe.some(x=>x.includes('supervisor del trabajo'))); assert(!fe.some(x=>x.includes('responsable del área')));
 ['supervisor','area','ejecutante'].forEach((k,i)=>{p.autorizacion[k].nombre=['Sup Ficticio','Resp Ficticio',u.nombre][i];p.autorizacion[k].firma='data:z';});
 assert.equal(M.validarFirmas(p).length,0);
 // Sin monitoreo: caliente + inflamables no se autoriza (sin campo LEL)
@@ -52,3 +52,4 @@ const t=textoPdf(p);
 assert(!t.includes('Vig')); assert(!t.includes('Monitoreo')); assert(!t.includes('REGISTRO FOTOGR')); assert(t.includes('ATS-P'));
 if(process.env.PETAR_QA_PDF)fs.writeFileSync(process.env.PETAR_QA_PDF,Buffer.from(w.DocPDF.generar(p).output('arraybuffer')));
 console.log('OK: v09 — PETAR B&P simplificado: requisitos y caliente con texto aprobado, EPP por tipo, sin vigías, sin monitoreo, sin fotos, solo autorización y compatibilidad bp-v1.');
+

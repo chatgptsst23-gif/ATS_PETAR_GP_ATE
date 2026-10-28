@@ -13,12 +13,12 @@ const a=M.nuevoATS('ATS-M',u);
 assert.equal(a.catalogo,''); assert(M.esAtsManual(a)); assert(!M.usaCatalogo(a));
 assert.deepEqual(M.pasos(a).map(x=>x.id).join(),'generales,pasos,epp');
 assert.equal(a.pasos.length,1); assert.equal(a.pasos[0].paso,'');
-const hg=A.generales(a); assert(hg.includes('Nivel 1 – Bahía 1')); assert(hg.includes('data-ruta="permisos.caliente"')); assert(!hg.includes('disabled'));
+const hg=A.generales(a); assert(!hg.includes('generales.ubicacion')); assert(hg.includes('data-ruta="permisos.caliente"')); assert(!hg.includes('disabled'));
 assert(!A.pasos(a).includes('ejemplo-pasos')); assert(!A.pasos(a).includes('vienen de las tareas'));
 // El trabajador llena todo
 assert(M.validarPaso(a,'generales').length>0); assert(M.validarPaso(a,'pasos').length>0);
 a.generales.tarea='Esmerilado de puerta — placa ficticia'; M.aplicarUbicacion(a,'Nivel 1 – Bahía 4'); a.generales.supervisor='Supervisor Ficticio';
-a.pasos[0]={paso:'Esmerilar',evento:'Chispas → incendio',critico:'si',medidas:'Extintor y biombos',responsable:u.nombre};
+a.pasos[0]={paso:'Esmerilar',peligro:'Chispas',riesgo:'Incendio y quemaduras',critico:'si',medidas:'Extintor y biombos',responsable:u.nombre};
 assert.equal(M.validarPaso(a,'generales').length,0); assert.equal(M.validarPaso(a,'pasos').length,0);
 assert(!M.atsRequierePetar(a)); a.permisos.caliente=true; assert(M.atsRequierePetar(a));
 assert(A.generales(a).includes('te ofrecerá realizar el PETAR'));
@@ -26,7 +26,8 @@ assert(A.generales(a).includes('te ofrecerá realizar el PETAR'));
 a.personal=[{nombre:u.nombre,dni:'12345678',firma:'data:x'}]; a.supervisorFirma={nombre:'Supervisor Ficticio',firma:'data:y'}; a.estado='REGISTRADO';
 const p=M.nuevoPETARBP('PETAR-M',u,a);
 assert.equal(p.descripcion.atsId,a.id); assert.equal(p.descripcion.atsRef,'ATS-M'); assert.equal(p.perfilPetar,'bp-v2'); assert(p.tipos.caliente);
-assert.equal(p.descripcion.lugar,'Nivel 1 – Bahía 4'); assert.equal(p.descripcion.lugarTipo,'abierta');
+assert.equal(p.descripcion.lugar,''); assert.equal(p.descripcion.lugarTipo,'');
 // Pasos del PDF del ATS manual
 const raw=w.DocPDF.generar(a).output(); assert(raw.length>1000);
-console.log('OK: v11 — ATS de llenado manual (sin precarga), ubicaciones de la sede, permisos marcados por el trabajador y PETAR vinculado al ATS.');
+console.log('OK: v11 — ATS de llenado manual (sin precarga), sin ubicación fija, permisos marcados por el trabajador y PETAR vinculado al ATS.');
+

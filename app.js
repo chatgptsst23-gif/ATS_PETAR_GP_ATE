@@ -1,5 +1,5 @@
 /* =====================================================================
-   APLICACIÓN — Grupo Pana · Gestión Digital SST · v11
+   APLICACIÓN — Grupo Pana · Gestión Digital SST · v12
    ATS y PETAR de trabajos de alto riesgo. Pantallas, navegación y acciones.
    ===================================================================== */
 (function () {
@@ -392,7 +392,7 @@
   function vElegirATS() {
     var ats = st.lista.filter(esSedeActual).filter(function (d) { return d.tipo === 'ATS' && d.estado === 'REGISTRADO' && M.atsRequierePetar(d); });
     app.innerHTML = '<section class="bloque">' +
-      '<p class="intro">Selecciona el ATS registrado. El PETAR incluirá las secciones que exigen sus tareas (caliente, altura o materiales peligrosos) y copiará la tarea, el lugar, el personal y el EPP.</p>' +
+      '<p class="intro">Selecciona el ATS registrado. El PETAR incluirá las secciones que exigen sus tareas (caliente, altura o materiales peligrosos) y copiará la tarea, el personal y el EPP.</p>' +
       (ats.length ? ats.slice(0, 10).map(function (d) {
         return '<button class="tarjeta" data-accion="petar-desde" data-id="' + esc(d.id) + '"><div class="tarjeta__fila"><strong>' + esc(d.numero) + '</strong>' + pastilla(d) + '</div>' +
           '<div class="tarjeta__meta">' + esc(d.generales.tarea) + '</div><div class="tarjeta__meta">' + esc(fecha(d.generales.fecha)) + ' · ' + d.personal.length + ' persona(s)</div></button>';
@@ -443,22 +443,12 @@
       (petar.length ? '<div class="alerta alerta--aviso"><strong>Estas tareas requieren PETAR de ' + esc(petar.join(', ')) + '.</strong><div>Al registrar el ATS, el técnico ejecutante crea su PETAR desde este ATS.</div></div>' : '');
   }
 
-  function opcionesUbicacion(d) {
-    var l = M.ubicacionesSede(C.sedeCodigo), g = d.generales, sel = g.ubicacionSel || '';
-    if (!l.length) return null;
-    return '<select data-campo="generales.ubicacionSel"><option value="">Selecciona la ubicación</option>' + l.map(function (u) {
-      return '<option value="' + esc(u.nombre) + '"' + (sel === u.nombre ? ' selected' : '') + '>' + esc(u.nombre) + '</option>';
-    }).join('') + '<option value="__otro"' + (sel === '__otro' ? ' selected' : '') + '>Otro lugar (indicar)</option></select>';
-  }
-
   function fAtsGenerales(d) {
     var g = d.generales;
     if (M.usaCatalogo(d)) {
-      var sel = opcionesUbicacion(d), req = M.permisosRequeridos(d);
+      var req = M.permisosRequeridos(d);
       return numeroFijo(d) +
         campo('Tarea *', area('generales.tarea', g.tarea, 'Se completa con las tareas elegidas; agrega placa u OT si corresponde.', 2)) +
-        (sel ? campo('Ubicación *', sel) + (g.ubicacionSel === '__otro' ? campo('Indica el lugar *', txt('generales.ubicacion', g.ubicacion, 'Ej. Patio de maniobras')) : '')
-             : campo('Ubicación *', txt('generales.ubicacion', g.ubicacion, 'Ej. Bahía 3 de planchado'))) +
         '<div class="par">' + campo('Fecha *', txt('generales.fecha', g.fecha, '', 'date')) + campo('Hora *', txt('generales.hora', g.hora, '', 'time')) + '</div>' +
         campo('ATS liderado por *', txt('generales.lideradoPor', g.lideradoPor, 'Nombres y apellidos')) +
         campo('Supervisor de trabajo *', txt('generales.supervisor', g.supervisor, 'Nombres y apellidos'), 'Se completa con el dato de la sede (Área SST → Ajustes) si está configurado.') +
@@ -469,12 +459,9 @@
         (d.permisos.otro ? campo('Especifica el otro permiso *', txt('permisoOtro', d.permisoOtro, '')) : '') + '</details>';
     }
     if (M.esAtsManual(d)) {
-      /* v11: llenado por el trabajador; se mantiene la lista de ubicaciones de la sede. */
-      var selM = opcionesUbicacion(d);
+      /* Llenado por el trabajador; sin ubicación fija dentro de la sede. */
       return numeroFijo(d) +
         campo('Tarea *', area('generales.tarea', g.tarea, 'Describe la tarea. Ej. Esmerilado de puerta delantera, placa ABC-123', 2)) +
-        (selM ? campo('Ubicación *', selM) + (g.ubicacionSel === '__otro' ? campo('Indica el lugar *', txt('generales.ubicacion', g.ubicacion, 'Ej. Patio de maniobras')) : '')
-              : campo('Ubicación *', txt('generales.ubicacion', g.ubicacion, 'Ej. Bahía 3 de planchado'))) +
         campo('Área de Grupo Pana *', txt('generales.areaContratista', g.areaContratista, 'Ej. Planchado y pintura')) +
         '<div class="par">' + campo('Fecha *', txt('generales.fecha', g.fecha, '', 'date')) + campo('Hora *', txt('generales.hora', g.hora, '', 'time')) + '</div>' +
         campo('ATS liderado por *', txt('generales.lideradoPor', g.lideradoPor, 'Nombres y apellidos')) +
@@ -486,7 +473,6 @@
     }
     return numeroFijo(d) +
       campo('Tarea *', txt('generales.tarea', g.tarea, 'Ej. Ensamblaje de carrocería o preparación de pintura')) +
-      campo('Ubicación *', txt('generales.ubicacion', g.ubicacion, 'Ej. Bahía 3 de planchado')) +
       campo('Área de Grupo Pana *', txt('generales.areaContratista', g.areaContratista, 'Ej. Planchado y pintura')) +
       campo('Sede', '<input type="text" value="' + esc(M.sede(d)) + '" disabled>') +
       '<div class="par">' + campo('Fecha *', txt('generales.fecha', g.fecha, '', 'date')) + campo('Hora *', txt('generales.hora', g.hora, '', 'time')) + '</div>' +
@@ -507,7 +493,9 @@
         return '<article class="cond"><header class="cond__cab"><h3>Paso ' + (i + 1) + (tc ? ' <small class="nota">· ' + esc(tc.nombre) + '</small>' : '') + '</h3>' +
           (d.pasos.length > 1 ? '<button class="enlace enlace--mal" data-accion="quitar-paso" data-i="' + i + '">Quitar</button>' : '') + '</header>' +
           campo('¿Qué vamos a hacer? *', area(r + 'paso', p.paso, 'Secuencia del paso', 2)) +
-          campo('Peligro y riesgo para la persona *', area(r + 'evento', p.evento, 'Ej. Borde filoso → corte en la mano. Postura forzada → lesión muscular.', 3), 'Indica qué puede causar daño y qué lesión o afectación a la salud podría producir.') +
+          (p.evento ? '<p class="nota">Referencia del registro anterior: ' + esc(p.evento) + '. Separa esta información en peligro y riesgo.</p>' : '') +
+          campo('Peligro *', area(r + 'peligro', p.peligro, 'Ej. Borde metálico filoso; disco de esmeril en movimiento; vapores de pintura.', 2), 'Describe la fuente o situación que puede causar daño.') +
+          campo('Riesgo *', area(r + 'riesgo', p.riesgo, 'Ej. Contacto con el borde: corte en la mano; proyección de partículas: lesión ocular; inhalación de vapores: intoxicación.', 3), 'Indica qué podría ocurrir por ese peligro y qué daño podría causar a la persona.') +
           '<div class="preg"><p class="preg__texto">¿Es un paso crítico? *</p><p class="ayuda">Aplica el criterio definido por SST. Si tienes dudas sobre un posible daño grave, consulta antes de continuar.</p>' + seg(r + 'critico', p.critico, ESC_SN) + '</div>' +
           campo('¿Qué podemos hacer al respecto? Medidas de control *', area(r + 'medidas', p.medidas, 'Controles a implementar', 2)) +
           campo('Responsable de implementar los controles *', txt(r + 'responsable', p.responsable, 'Nombre')) +
@@ -535,7 +523,6 @@
       campo('ATS de referencia', '<input type="text" value="' + esc(s.atsRef) + '" disabled>', 'Vinculado al ATS registrado en este dispositivo.') +
       campo('Área de Grupo Pana *', txt('descripcion.ejecutaNombre', s.ejecutaNombre, M.esCarroceria(d) ? 'Carrocería / planchado' : 'Ej. Planchado y pintura')) +
       campo('Descripción de la tarea *', area('descripcion.tarea', s.tarea, M.esCarroceria(d) ? 'Indica la soldadura o esmerilado, el vehículo (placa/OT) o pieza y el equipo utilizado.' : 'Qué se hará, con qué equipo y sobre qué elemento', 3)) +
-      campo('Lugar específico de la tarea *', txt('descripcion.lugar', s.lugar, 'Ej. Bahía 3, lado norte')) +
       (M.esBP(d) ? '<div class="caja-info"><strong>Secciones de este permiso (según las tareas del ATS)</strong><p>' + esc(M.tiposTexto(d)) + '</p></div>' :
        M.esCarroceria(d) ? '<div class="caja-info"><strong>Trabajo en caliente de carrocería</strong><p>' + esc(M.configPetar(d).alcance) + '</p></div>' :
         '<label class="etiqueta">Tipo de trabajo *</label><div class="fichas">' + M.configPetar(d).tipos.filter(function (t) { return t.activo || d.tipos[t.id]; }).map(function (t) { return ficha('toggle', 'tipos.' + t.id, d.tipos[t.id], t.label + (t.activo ? '' : ' · próx. versión'), !t.activo); }).join('') + '</div>') +
@@ -622,9 +609,16 @@
     return '<div class="preg preg--compacta"><p class="preg__texto">' + esc(texto) + '</p>' + seg(ruta, valor, ESC_SINA) + '</div>';
   }
 
+  function contactosEmergenciaHTML(m) {
+    if (!m.contactos) return '<div class="datos"><div class="dato"><span>Contacto de emergencia</span><strong>' + esc(m.contacto + ' · ' + m.telefono) + '</strong></div></div>';
+    return '<section class="bloque contactos-emergencia"><h2 class="h-seccion">Área de SST y contacto de Trabajadora Social</h2>' +
+      '<p class="ayuda">En caso de accidentes e incidentes, comunícate con:</p>' +
+      m.contactos.map(function (x) { return '<div class="dato"><span>' + esc(x.area) + '</span><strong>' + esc(x.nombre) + '</strong><a href="tel:' + esc(x.telefono) + '">' + esc(x.telefono) + '</a></div>'; }).join('') + '</section>';
+  }
+
   function fPEmergencia(d) {
     var m = d.emergencia;
-    return '<p class="intro">Los contactos pueden completarse desde Área SST → Ajustes. Confirma que sigan vigentes; verifica las condiciones de emergencia en cada trabajo.</p>' + campo('Nombre del encargado de la sede *', txt('emergencia.encargadoSede', m.encargadoSede, '')) +
+    return '<p class="intro">Contactos de la empresa para accidentes e incidentes. Verifica las condiciones de emergencia en cada trabajo.</p>' + campo('Encargado de la sede', '<input type="text" value="' + esc(m.encargadoSede) + '" readonly>') +
       campo('Nombre del supervisor o prevencionista *', txt('emergencia.supervisorPrevencionista', m.supervisorPrevencionista, '')) +
       '<h2 class="h-seccion">Posible emergencia detectada</h2>' +
       M.emergenciasDe(d).map(function (x) { return preguntaCompacta(x, 'emergencia.emergencias.' + x, m.emergencias[x]); }).join('') +
@@ -634,8 +628,7 @@
       campo('Otros (indicar)', txt('emergencia.equipoOtro', m.equipoOtro, '')) +
       pregunta('¿Las rutas de acceso y salida están libres de obstáculos? *', 'emergencia.rutasLibres', m.rutasLibres, ESC_SN, marca('critico')) +
       pregunta('¿Se indicó a los trabajadores involucrados las rutas de evacuación y puntos de reunión en caso de emergencia? *', 'emergencia.rutasIndicadas', m.rutasIndicadas, ESC_SN, marca('critico')) +
-      '<div class="par">' + campo('Teléfono de contacto para emergencias *', txt('emergencia.telefono', m.telefono, '', 'tel')) +
-      campo('Persona de contacto *', txt('emergencia.contacto', m.contacto, '')) + '</div>' +
+      contactosEmergenciaHTML(m) +
       campo('Observaciones', area('observaciones', d.observaciones, 'Medidas complementarias o restricciones', 3));
   }
 
@@ -647,6 +640,7 @@
 
   /* ========================== Pantalla: revisión ==================== */
   function vRevision() {
+    M.normalizar(st.doc);
     var d = st.doc, err = M.validarTodo(d), bl = M.bloqueos(d), obs = M.observados(d);
     var puede = !err.length && !bl.length;
     app.innerHTML = resumen(d, true) +
@@ -662,6 +656,10 @@
   }
 
   /* =========================== Pantalla: firmas ===================== */
+  function botonRevisar() {
+    return '<button class="btn btn--fantasma btn--ancho" data-accion="retroceder-revisar">← Retroceder y revisar</button>';
+  }
+
   function vFirmas() {
     var d = st.doc, err = st.errores;
     var h = UI.listaErrores(err.map(function (m) { return { mensaje: m }; })) +
@@ -672,7 +670,7 @@
         listaFirmantes(d.personal, 'personal') +
         (d.personal.length < C.ats.maxPersonal ? nuevoFirmante(false) : '<p class="nota">Máximo ' + C.ats.maxPersonal + ' personas.</p>') + '</section>' +
         '<section class="bloque"><h2 class="h-seccion">Supervisor de trabajo</h2>' + firmaFija('supervisorFirma', d.supervisorFirma, false, d.generales.supervisor) + '</section>' +
-        '<section class="bloque acciones-finales"><button class="btn btn--principal btn--ancho" data-accion="registrar-ats">' + (C.modoPrueba ? 'Registrar ATS de prueba' : 'Registrar ATS y enviar a SST') + '</button>' +
+        '<section class="bloque acciones-finales">' + botonRevisar() + '<button class="btn btn--principal btn--ancho" data-accion="registrar-ats">' + (C.modoPrueba ? 'Registrar ATS de prueba' : 'Registrar ATS y enviar a SST') + '</button>' +
         '<button class="btn btn--secundario btn--ancho" data-accion="guardar-salir">Guardar y salir</button></section>';
     } else if (M.opcion(d, 'soloAutorizacion')) {
       /* v09: los participantes firmaron el ATS; aquí solo firma la autorización. */
@@ -685,7 +683,7 @@
           var nota = x.origenFirma && x.firma ? '<div class="alerta alerta--ok">Firma tomada del ATS ' + esc(x.origenFirma.ats) + ', confirmada por ' + esc(x.origenFirma.nombre) + ' el ' + esc(UI.fechaHora(x.origenFirma.confirmada)) + '. Si dibujas o borras, se reemplaza.</div>' : '';
           return '<h3 class="h-sub">' + esc(a.cargo) + '</h3>' + (a.ayuda ? '<p class="nota">' + esc(a.ayuda) + '</p>' : '') + firmaFija('autorizacion.' + a.clave, x, false) + usar + nota;
         }).join('') + '</section>' +
-        '<section class="bloque acciones-finales"><button class="btn btn--principal btn--ancho" data-accion="autorizar">' + (C.modoPrueba ? 'Simular autorización del PETAR' : 'Autorizar PETAR y enviar a SST') + '</button>' +
+        '<section class="bloque acciones-finales">' + botonRevisar() + '<button class="btn btn--principal btn--ancho" data-accion="autorizar">' + (C.modoPrueba ? 'Simular autorización del PETAR' : 'Autorizar PETAR y enviar a SST') + '</button>' +
         '<button class="btn btn--secundario btn--ancho" data-accion="guardar-salir">Guardar y salir</button></section>';
     } else {
       h += '<section class="bloque"><h2 class="h-seccion">VII. Colaboradores participantes</h2>' +
@@ -699,7 +697,7 @@
         M.configPetar(d).firmasAutorizacion.map(function (a) {
           return '<h3 class="h-sub">' + esc(a.cargo) + '</h3>' + (a.ayuda ? '<p class="nota">' + esc(a.ayuda) + '</p>' : '') + firmaFija('autorizacion.' + a.clave, d.autorizacion[a.clave], false);
         }).join('') + '</section>' +
-        '<section class="bloque acciones-finales"><button class="btn btn--principal btn--ancho" data-accion="autorizar">' + (C.modoPrueba ? 'Simular autorización del PETAR' : 'Autorizar PETAR y enviar a SST') + '</button>' +
+        '<section class="bloque acciones-finales">' + botonRevisar() + '<button class="btn btn--principal btn--ancho" data-accion="autorizar">' + (C.modoPrueba ? 'Simular autorización del PETAR' : 'Autorizar PETAR y enviar a SST') + '</button>' +
         '<button class="btn btn--secundario btn--ancho" data-accion="guardar-salir">Guardar y salir</button></section>';
     }
     app.innerHTML = h;
@@ -731,9 +729,42 @@
     if (!x.nombre && sugerido) x.nombre = sugerido;
     return campo('Nombres y apellidos *', txt(ruta + '.nombre', x.nombre, '')) +
       (conDni ? campo('DNI *', txt(ruta + '.dni', x.dni, '8 dígitos', 'tel', ' inputmode="numeric" maxlength="8"')) : '') +
-      '<div class="firma"><canvas class="firma__lienzo" data-firma="' + ruta + '"></canvas>' +
+      (ruta === 'autorizacion.ejecutante' ? '<p class="ayuda">Dibuja tu firma abajo o añade una imagen de tu firma.</p><label class="btn btn--fantasma btn--ancho">Añadir firma desde imagen<input type="file" accept="image/png,image/jpeg" data-firma-imagen="' + ruta + '" hidden></label>' : '') +
+      '<div class="firma"><canvas class="firma__lienzo" data-firma="' + ruta + '" aria-label="Área para dibujar la firma"></canvas>' +
       '<div class="firma__pie"><span>' + (x.fechaHora ? 'Firmado ' + esc(UI.fechaHora(x.fechaHora)) : 'Firma con el dedo') + '</span>' +
       '<button class="enlace" data-accion="borrar-firma" data-firma="' + ruta + '">Borrar</button></div></div>';
+  }
+
+  function cargarFirmaImagen(input) {
+    var d = st.doc, file = input.files && input.files[0], ruta = input.dataset.firmaImagen;
+    input.value = '';
+    if (!file || !d || !M.editable(d) || st.pantalla !== 'firmas' || ruta !== 'autorizacion.ejecutante') return Promise.resolve();
+    if (!/^image\/(png|jpeg)$/.test(file.type) || file.size > 5 * 1024 * 1024) {
+      UI.aviso('Selecciona una imagen PNG o JPG de tu firma (máximo 5 MB).', 'mal'); return Promise.resolve();
+    }
+    var x = getPath(d, ruta), nombre = x.nombre;
+    if (!nombre.trim()) { UI.aviso('Escribe el nombre del ejecutante antes de añadir su firma.', 'mal'); return Promise.resolve(); }
+    return UI.confirmar({ titulo: 'Añadir mi firma', texto: '¿Eres ' + nombre + '? Confirma que la imagen contiene tu firma para este PETAR.', aceptar: 'Sí, añadir mi firma' }).then(function (ok) {
+      if (!ok || st.doc !== d || st.pantalla !== 'firmas' || !M.editable(d) || x.nombre !== nombre) return;
+      return new Promise(function (resolve) {
+        var url = URL.createObjectURL(file), img = new Image();
+        function terminar() { URL.revokeObjectURL(url); resolve(); }
+        img.onerror = function () { UI.aviso('No se pudo leer la imagen de la firma.', 'mal'); terminar(); };
+        img.onload = function () {
+          try {
+            if (st.doc !== d || st.pantalla !== 'firmas' || !M.editable(d) || x.nombre !== nombre) return;
+            var cv = document.createElement('canvas'); cv.width = 1000; cv.height = 300;
+            var ctx = cv.getContext('2d'), escala = Math.min(cv.width / img.width, cv.height / img.height);
+            ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+            ctx.drawImage(img, (cv.width - img.width * escala) / 2, (cv.height - img.height * escala) / 2, img.width * escala, img.height * escala);
+            x.firma = cv.toDataURL('image/png'); x.fechaHora = new Date().toISOString(); delete x.origenFirma;
+            guardarLuego(); quieto(); UI.aviso('Firma del ejecutante añadida.');
+          } catch (e) { UI.aviso('No se pudo añadir la firma. Prueba con otra imagen.', 'mal'); }
+          finally { terminar(); }
+        };
+        img.src = url;
+      });
+    });
   }
 
   function montarFirmas() {
@@ -812,12 +843,12 @@
 
     if (d.tipo === 'ATS') {
       var g = d.generales;
-      h += tit('Datos de la tarea', 0) + '<div class="datos">' + f('Sede', M.sede(d)) + f('Tarea', g.tarea) + f('Ubicación', g.ubicacion) + f('Área de Grupo Pana', g.areaContratista) +
+      h += tit('Datos de la tarea', 0) + '<div class="datos">' + f('Sede', M.sede(d)) + f('Tarea', g.tarea) + (d.formularioVersion >= 12 ? '' : f('Ubicación', g.ubicacion)) + f('Área de Grupo Pana', g.areaContratista) +
         f('Fecha y hora', fecha(g.fecha) + ' ' + g.hora) + f('Liderado por', g.lideradoPor) + f('Supervisor', g.supervisor) +
         f('Permisos', C.ats.permisos.filter(function (p) { return d.permisos[p.id]; }).map(function (p) { return p.id === 'otro' ? 'Otro: ' + d.permisoOtro : p.label; }).join(', ')) + '</div>' +
         tit('Pasos de la tarea', 1) + d.pasos.map(function (p, i) {
           return '<div class="paso-res"><strong>' + (i + 1) + '. ' + esc(p.paso || '—') + (p.critico === 'si' ? ' <span class="marca marca--critico">Crítico</span>' : '') + '</strong>' +
-            '<small>Riesgo: ' + esc(p.evento || '—') + '</small><small>Control: ' + esc(p.medidas || '—') + ' · Resp.: ' + esc(p.responsable || '—') + '</small></div>';
+            (d.formularioVersion >= 12 ? '<small>Peligro: ' + esc(p.peligro || '—') + '</small><small>Riesgo: ' + esc(p.riesgo || '—') : '<small>Peligro y riesgo: ' + esc(p.evento || '—')) + '</small><small>Control: ' + esc(p.medidas || '—') + ' · Resp.: ' + esc(p.responsable || '—') + '</small></div>';
         }).join('') +
         tit('EPP y herramientas', 2) + '<div class="datos">' + f('EPP', M.catalogoEpp(d).filter(function (e) { return d.epp[e.id]; }).map(function (e) { return e.label; }).concat(d.otrosEpp ? [d.otrosEpp] : []).join(', ')) +
         f('Herramientas', d.herramientas) + f('Comentarios', d.comentarios) + '</div>';
@@ -828,7 +859,7 @@
     var s = d.descripcion, m = d.emergencia;
     h += tit('I. Descripción del trabajo', P.indexOf('descripcion')) + '<div class="datos">' +
       f('Sede', M.sede(d)) + f('Fecha y horario', fecha(s.fecha) + ' · ' + s.horaInicio + ' a ' + (s.horaFin || '—')) + f('ATS de referencia', s.atsRef) +
-      f('Área de Grupo Pana', s.ejecutaNombre) + f('Tarea', s.tarea) + f('Lugar', s.lugar) + f('Tipo', M.tiposTexto(d)) +
+      f('Área de Grupo Pana', s.ejecutaNombre) + f('Tarea', s.tarea) + (d.formularioVersion >= 12 ? '' : f('Lugar', s.lugar)) + f('Tipo', M.tiposTexto(d)) +
       (M.esBP(d) ? '' : f('Capacitación previa', sn(s.capacitacion))) + '</div>' +
       tit('III. EPP', P.indexOf('epp')) + '<p class="parrafo">' + esc(M.catalogoEpp(d).reduce(function (a, g) { return a.concat(g.items.filter(function (it) { return d.epp[it.id]; }).map(function (it) { return it.label; })); }, []).concat(d.eppOtros ? [d.eppOtros] : []).join(', ') || '—') + '</p>' +
       tit('IV. Requisitos de seguridad', P.indexOf('requisitos')) + lista(M.configPetar(d).requisitos, d.requisitos);
@@ -843,7 +874,7 @@
     if ((d.tipos.caliente || d.tipos.altura || d.tipos.peligrosos) && !M.opcion(d, 'sinFotos')) h += '<div class="datos">' + f('Fotografías de evidencia', String(M.totalFotos(d))) +
       (M.fotosFaltantes(d).length ? f('Evidencias pendientes', String(M.fotosFaltantes(d).length)) : '') + '</div>';
     h += tit('VI. Emergencias', P.indexOf('emergencia')) + '<div class="datos">' + f('Encargado de sede', m.encargadoSede) + f('Supervisor / prevencionista', m.supervisorPrevencionista) +
-      f('Rutas libres', sn(m.rutasLibres)) + f('Rutas indicadas', sn(m.rutasIndicadas)) + f('Contacto de emergencia', m.contacto + ' · ' + m.telefono) + '</div>';
+      f('Rutas libres', sn(m.rutasLibres)) + f('Rutas indicadas', sn(m.rutasIndicadas)) + '</div>' + contactosEmergenciaHTML(m);
     if (d.estado !== 'BORRADOR') {
       h += tit('Autorización', undefined) + '<div class="datos">' + f('Participantes', d.participantes.map(function (x) { return x.nombre; }).join(', ')) +
         M.configPetar(d).firmasAutorizacion.map(function (a) { return f(a.cargo, d.autorizacion[a.clave].nombre); }).join('') + '</div>';
@@ -883,11 +914,7 @@
   /* ============================ Ajustes ============================= */
   var CAMPOS_CONTACTO = [
     ['supervisorTrabajo', 'Supervisor habitual del trabajo'],
-    ['responsableArea', 'Responsable del área'],
-    ['encargadoSede', 'Encargado de sede'],
-    ['supervisorPrevencionista', 'Supervisor o prevencionista de emergencia'],
-    ['telefono', 'Teléfono para emergencias'],
-    ['contacto', 'Persona de contacto para emergencias']
+    ['supervisorPrevencionista', 'Supervisor o prevencionista de emergencia']
   ];
   function contactosHTML() {
     var c = st.contactosPorSede[C.sedeCodigo] || {};
@@ -1070,7 +1097,7 @@
         M.aplicarTareas(d); guardarLuego(); quieto(); break;
       case 'tarea-libre':
         d.tareaLibre = !d.tareaLibre;
-        if (d.tareaLibre && !d.pasos.some(function (p) { return !p.origen; })) d.pasos.push({ paso: '', evento: '', critico: '', medidas: '', responsable: d.generales.lideradoPor || '' });
+        if (d.tareaLibre && !d.pasos.some(function (p) { return !p.origen; })) d.pasos.push({ paso: '', peligro: '', riesgo: '', evento: '', critico: '', medidas: '', responsable: d.generales.lideradoPor || '' });
         if (!d.tareaLibre) d.pasos = d.pasos.filter(function (p) { return p.origen || p.paso || p.evento || p.medidas; });
         guardarLuego(); quieto(); break;
       case 'sugerir-epp':
@@ -1080,7 +1107,7 @@
         if (lf) { d.evidencias[b.dataset.ruta] = lf.filter(function (f) { return f.id !== idFoto; }); if (!d.evidencias[b.dataset.ruta].length) delete d.evidencias[b.dataset.ruta]; }
         window.Store.eliminarFoto(idFoto).catch(function () {}); guardarLuego(); quieto(); break;
       case 'ver-foto': verFoto(b.dataset.id); break;
-      case 'agregar-paso': d.pasos.push({ paso: '', evento: '', critico: '', medidas: '', responsable: '' }); guardarLuego(); quieto(); break;
+      case 'agregar-paso': d.pasos.push({ paso: '', peligro: '', riesgo: '', evento: '', critico: '', medidas: '', responsable: '' }); guardarLuego(); quieto(); break;
       case 'quitar-paso': d.pasos.splice(Number(b.dataset.i), 1); guardarLuego(); quieto(); break;
       case 'ejemplo-pasos':
         d.pasos = C.ats.pasosEjemplo.map(function (p) { return Object.assign({}, p, { responsable: d.generales.supervisor || st.usuario.nombre }); });
@@ -1091,6 +1118,7 @@
       case 'descargar-pdf': window.DocPDF.descargar(d).catch(function () { UI.aviso('No se pudo descargar el PDF.', 'mal'); }); break;
 
       /* Firmas */
+      case 'retroceder-revisar': guardarYa().then(function () { ir('revision'); }); break;
       case 'ir-firmas':
         if (M.validarTodo(d).length || M.bloqueos(d).length) { render(); return; }
         st.pendiente = null; st['firma__nuevo'] = '';
@@ -1226,7 +1254,7 @@
       if (!M.editable(d)) return;
       var pendientes = M.validarTodo(d).map(function (x) { return x.mensaje; }).concat(M.validarFirmas(d), M.bloqueos(d));
       if (pendientes.length) { st.errores = pendientes; render(); return; }
-      M.cambiarEstado(d, estado, st.usuario.nombre, estado === 'AUTORIZADO' ? 'Autorizado por ' + d.autorizacion.supervisor.nombre + ' y ' + d.autorizacion.area.nombre : 'ATS firmado por ' + d.personal.length + ' persona(s)');
+      M.cambiarEstado(d, estado, st.usuario.nombre, estado === 'AUTORIZADO' ? 'Autorizado por ' + M.configPetar(d).firmasAutorizacion.map(function (a) { return d.autorizacion[a.clave].nombre; }).join(' y ') : 'ATS firmado por ' + d.personal.length + ' persona(s)');
       window.Store.guardar(d).then(function () {
         return (C.enviarAl[momento] ? enviar(d, momento) : null);
       }).then(function () {
@@ -1301,7 +1329,7 @@
     prueba.generales.areaContratista = 'ÁREA FICTICIA';
     prueba.generales.lideradoPor = ficticio.nombre;
     prueba.generales.supervisor = ficticio.nombre;
-    prueba.pasos = [{ paso: 'Prueba de conexión', evento: 'Dato ficticio', critico: 'no', medidas: 'Dato ficticio', responsable: ficticio.nombre }];
+    prueba.pasos = [{ paso: 'Prueba de conexión', peligro: 'Dato ficticio', riesgo: 'Dato ficticio', evento: 'Dato ficticio', critico: 'no', medidas: 'Dato ficticio', responsable: ficticio.nombre }];
     return window.Envio.enviar(prueba, 'prueba_conexion').then(function (r) {
       UI.aviso(r.detalle || textoEnvio(r), r.resultado === 'confirmado' ? 'ok' : 'mal');
       return r;
@@ -1312,6 +1340,14 @@
     var el = ev.target;
     if (!el.dataset || !el.dataset.campo || !st.doc) return;
     if (el.dataset.campo === 'generales.ubicacionSel') { M.aplicarUbicacion(st.doc, el.value); guardarLuego(); quieto(); return; }
+    if (/^autorizacion\.[a-z]+\.nombre$/.test(el.dataset.campo)) {
+      var firmante = getPath(st.doc, el.dataset.campo.replace(/\.nombre$/, ''));
+      if (firmante.nombre !== el.value && firmante.firma) {
+        firmante.firma = ''; firmante.fechaHora = ''; delete firmante.origenFirma;
+        var firmaPad = st.pads[el.dataset.campo.replace(/\.nombre$/, '')];
+        if (firmaPad) firmaPad.limpiar();
+      }
+    }
     setPath(st.doc, el.dataset.campo, el.value);
     guardarLuego();
     /* v10: al cambiar el nombre de quien autoriza, se muestra u oculta "Usar mi firma del ATS". */
@@ -1331,12 +1367,13 @@
     app.addEventListener('click', clic);
     app.addEventListener('input', entrada);
     app.addEventListener('change', entrada);
+    app.addEventListener('change', function (ev) { if (ev.target && ev.target.dataset && ev.target.dataset.firmaImagen) cargarFirmaImagen(ev.target); });
     app.addEventListener('change', function (ev) { if (ev.target && ev.target.dataset && ev.target.dataset.foto) tomarFoto(ev.target); });
     atras.addEventListener('click', function () {
       var p = st.pantalla;
       if (p === 'form') return st.paso > 0 ? ir('form', st.paso - 1) : guardarYa().then(function () { ir('inicio'); });
       if (p === 'revision') return ir('form', M.pasos(st.doc).length - 1);
-      if (p === 'firmas') return ir('revision');
+      if (p === 'firmas') return guardarYa().then(function () { ir('revision'); });
       if (p === 'verificacion' || p === 'cierre') return ir('detalle');
       if (p === 'accesoSST' || p === 'ajustes') return ir(st.volverA || (st.usuario ? 'inicio' : 'usuario'));
       ir('inicio');
@@ -1373,3 +1410,4 @@
   window.App = { estado: st };
   document.addEventListener('DOMContentLoaded', iniciar);
 })();
+

@@ -22,7 +22,7 @@ assert.equal(a.pasos.length,7); assert(a.pasos.every(p=>p.responsable===u.nombre
 assert.equal(a.permisos.caliente,true); assert(!a.permisos.altura);
 assert(a.generales.tarea.includes('Esmerilar')); assert(a.otrosEpp.includes('Careta para esmeril')); assert(a.herramientas.includes('Esmeril'));
 assert.equal(a.epp.guantes,true); assert.equal(a.epp.auditiva,true);
-assert.equal(M.validarPaso(a,'tareas').length,0); assert.equal(M.validarPaso(a,'pasos').length,0);
+assert.equal(M.validarPaso(a,'tareas').length,0); assert.equal(M.validarPaso(a,'pasos').length,14); // El catálogo legado conserva el texto combinado; debe separarse antes de firmar.
 // Edición conservada y textos editados no se pisan
 a.pasos[3].medidas='Medida editada en campo'; a.generales.tarea='Esmerilado de puerta — placa ABC-123';
 a.tareasCatalogo.push('T22'); M.aplicarTareas(a);
@@ -34,7 +34,7 @@ a.tareasCatalogo=a.tareasCatalogo.filter(c=>c!=='T08'); M.aplicarTareas(a); asse
 a.tareasCatalogo.push('T08'); M.aplicarTareas(a); assert.equal(a.permisos.caliente,true);
 // Ubicación de la sede
 M.aplicarUbicacion(a,'Nivel 1 – Bahía 3'); assert.equal(a.generales.ubicacion,'Nivel 1 – Bahía 3'); assert.equal(a.generales.ubicacionTipo,'abierta');
-assert(A.generales(a).includes('Nivel 1 – Horno 5 (lado B)'));
+assert(!A.generales(a).includes('generales.ubicacion'));
 assert(A.generales(a).includes('data-ruta="permisos.caliente" disabled'));
 // Registro simulado del ATS
 a.generales.supervisor='Supervisor Ficticio'; a.personal=[{nombre:u.nombre,dni:'12345678',firma:'data:x',fechaHora:'t'},{nombre:'Ayudante Ficticio',dni:'87654321',firma:'data:y',fechaHora:'t'}];
@@ -72,3 +72,4 @@ const ta=textoPdf(a), tp=textoPdf(p);
 assert(ta.includes('Puesto')); assert(!tp.includes('capacitaci\\363n previa')&&!tp.includes('capacitación previa'));
 if(process.env.PETAR_QA_PDF){fs.writeFileSync(process.env.PETAR_QA_PDF+'_ats.pdf',Buffer.from(w.DocPDF.generar(a).output('arraybuffer')));fs.writeFileSync(process.env.PETAR_QA_PDF+'_petar.pdf',Buffer.from(w.DocPDF.generar(p).output('arraybuffer')));}
 console.log('OK: v08 — ATS precargado desde el catálogo B&P, permisos por tarea, altura desde 1,80 m, PETAR B&P único por ATS, respuestas precargadas, emergencias y PDF.');
+

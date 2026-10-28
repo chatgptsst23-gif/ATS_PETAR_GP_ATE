@@ -30,7 +30,7 @@ const user={nombre:'Usuario Prueba',cargo:'Supervisor'};
 const respuesta=(status,obj)=>({status,ok:status>=200&&status<300,text:async()=>typeof obj==='string'?obj:JSON.stringify(obj)});
 const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CLAVE_FICTICIA_V06';};
 (async()=>{
-  assert.equal(C.flujoUrl,''); assert.equal(C.claveArea,''); assert.equal(C.modoPrueba,false); assert.equal(C.version,'v11 (ATS de llenado manual)');
+  assert.equal(C.flujoUrl,''); assert.equal(C.claveArea,''); assert.equal(C.modoPrueba,false); assert.equal(C.version,'v12 (contactos y formularios simplificados)');
   assert.equal(C.sedes.map(s=>s.codigo+':'+s.nombre).join(','),'MON:Montero,SQO:Surquillo,SCO:Surco,SMG:San Miguel,CAL:Callao,ATE:Ate,MOQ:Moquegua,TAC:Tacna');
 
   const p=M.nuevoPETAR('PETAR-PRUEBA',user);
@@ -204,7 +204,8 @@ const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CL
   assert(fuenteApp.includes('Acceso Área SST'));assert(fuenteApp.includes('claveAjustesHash_v07'));assert(fuenteApp.includes('canvasBlob'));
   assert(!fuenteApp.includes('Continuar sin vincular'));assert(!fuenteApp.includes("'Contratista'"));assert(!fuenteApp.includes('D.S. 42-F'));assert(!fuenteApp.includes('FOR-GHS-002'));
   const fuentePdf=fs.readFileSync(path.join(root,'pdf.js'),'utf8');assert(!fuentePdf.includes('D.S. 42-F'));assert(!fuentePdf.includes('FOR-GHS-002'));
-  assert(!fuenteApp.includes('toDataURL('));assert(!fuenteApp.includes('readAsDataURL'));
+  const fotosApp=fuenteApp.slice(fuenteApp.indexOf('  function tomarFoto('),fuenteApp.indexOf('  function verFoto('));
+  assert(!fotosApp.includes('toDataURL('));assert(!fotosApp.includes('readAsDataURL')); // Las firmas sí usan PNG; las evidencias siguen como blobs.
   const fuenteDatos=fs.readFileSync(path.join(root,'datos.js'),'utf8');
   assert(fuenteDatos.includes("FOTOS = 'fotos'"));assert(fuenteDatos.includes('fotosSoportadas'));
   assert(fs.readFileSync(path.join(root,'modelo.js'),'utf8').includes('lideradoPor: usuario.nombre'));
@@ -234,7 +235,7 @@ const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CL
   M.aplicarContactos(pp,contactos);
   assert.equal(pp.supervisorTrabajo.nombre,'Supervisor Original');
   assert.equal(pp.emergencia.supervisorPrevencionista,'Prevencionista de emergencia');
-  assert.equal(pp.autorizacion.area.nombre,'Responsable Area');assert.equal(pp.emergencia.telefono,'123456789');
+  assert.equal(pp.autorizacion.area.nombre,'');assert.equal(pp.emergencia.telefono,'954315442 / 969331233 / 981118737');
   assert.equal(pp.emergencia.rutasLibres,'');assert.equal(pp.autorizacion.area.firma,'');
   assert(M.validarPaso(pp,'requisitos').length>0);
   pp.requisitos.r_epp='no';assert(M.bloqueos(pp).some(x=>x.includes('EPP')));
@@ -254,3 +255,4 @@ const configurar=()=>{C.flujoUrl='https://example.invalid/flujo';C.claveArea='CL
   assert(contenidoEpp.includes('Mandil de cuero'));assert(contenidoEpp.includes('Escarpines'));assert(!contenidoEpp.includes('Casco de seguridad'));
   console.log('OK: v07.3 (EPP, legado, sugerencias seguras, contactos) + regresiones multisede/v07/v06/v05.');
 })().catch(e=>{console.error(e);process.exitCode=1});
+

@@ -1,5 +1,21 @@
 # ATS y PETAR — Grupo Pana · Multisede
 
+## v12 · Ajustes de formularios y firmas (28-10-2026)
+
+- Encargado de sede automático: **Sandro Vallebuona**.
+- Contactos visibles para accidentes e incidentes, con enlaces para llamar y tabla en el PDF: Silvia Romero Cuellar, SST, **954315442**; Vanessa Ramos Jimenez, SST, **969331233**; Marilin Tejeda Guadalupe, Trabajadora Social, **981118737**. Se guardan con cada PETAR; los antiguos ajustes locales no los reemplazan.
+- Sin ubicación fija en los formularios, validaciones, resúmenes y PDF nuevos de ATS/PETAR. Se conserva la sede y el área.
+- **Peligro** y **Riesgo** separados, ambos obligatorios, con ejemplos y ayuda. El PDF incluye columnas separadas.
+- PETAR sin **Responsable del área**: autorización por supervisor y ejecutante, conservando su independencia.
+- El ejecutante puede dibujar, reutilizar su firma del ATS con confirmación o **añadir una imagen PNG/JPG** (máximo 5 MB). Cambiar su nombre invalida la firma anterior.
+- **Retroceder y revisar** desde firmas conserva las firmas; editar el contenido sigue exigiendo confirmación y una nueva firma.
+- Los registros anteriores ya firmados conservan su formato y datos. Los borradores sin firmas se actualizan: el texto antiguo de peligro/riesgo queda visible como referencia para separarlo sin inventar información. Un borrador antiguo firmado se actualiza cuando se vuelve a editar y se confirman las nuevas firmas.
+- Caché actualizada a v12 para la aplicación instalada.
+
+Pruebas sin red: `for f in tests/*.cjs; do node "$f" || exit 1; done`.
+
+Las secciones siguientes documentan versiones anteriores.
+
 ## v11 · ATS de llenado manual y PETAR vinculado al terminar el ATS
 
 - **El trabajador llena el ATS** (decisión del área, 16-10-2026): ya no se eligen tareas del catálogo ni se precargan pasos, peligros, controles ni EPP. El ATS vuelve a 3 pasos: datos de la tarea, pasos/riesgos/controles y EPP. Se mantienen la fecha y hora automáticas, la lista de ubicaciones de la sede (Ate) y el supervisor desde los datos de la sede.
@@ -248,3 +264,4 @@ Antes de considerar la versión definitiva deben verificarse en celulares reales
 ## Power Automate
 
 El contrato de integración se mantiene sobre la guía existente: `docs/POWER_AUTOMATE_v06.md`. Para v07, el payload conserva los mismos campos y cambia `version` a `v07`.
+

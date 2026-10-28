@@ -854,3 +854,8 @@ button[disabled].btn { opacity: .5; cursor: not-allowed; }
 .tarea-op__txt { flex: 1; line-height: 1.35; }
 .etq-petar { display: inline-block; margin: 6px 6px 0 0; padding: 2px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700;
   color: var(--llama); background: #FCEDE7; border: 1px solid rgba(199, 65, 26, .35); white-space: normal; }
+
+
+/* Contactos visibles y accionables en móvil. */
+.contactos-emergencia .dato { padding: 12px 0; border-bottom: 1px solid var(--borde, #dce1e7); }
+.contactos-emergencia .dato a { display: inline-block; padding: 8px 0; font-weight: 700; }

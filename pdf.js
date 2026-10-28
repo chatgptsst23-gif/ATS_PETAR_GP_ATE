@@ -281,7 +281,7 @@
     var L = new Lienzo(d), g = d.generales;
     L.banda('DATOS DE LA TAREA');
     L.fila([['Tarea', g.tarea, 0.5], ['Fecha', fmtF(g.fecha), 0.18], ['Hora', g.hora, 0.14], ['Sede', window.Modelo.sede(d), 0.18]]);
-    L.fila([['Ubicación', g.ubicacion, 0.5], ['Grupo Pana (Área) / Contratista', g.areaContratista, 0.5]]);
+    L.fila(d.formularioVersion >= 12 ? [['Área de Grupo Pana', g.areaContratista, 1]] : [['Ubicación', g.ubicacion, 0.5], ['Grupo Pana (Área) / Contratista', g.areaContratista, 0.5]]);
     L.fila([['ATS liderado por', g.lideradoPor, 0.5], ['Supervisor de trabajo', g.supervisor, 0.5]]);
     if (g.puesto) L.fila([['Puesto', g.puesto, 0.35], ['Tareas del catálogo B&P', (d.tareasCatalogo || []).join(', ') + (d.tareaLibre ? (d.tareasCatalogo.length ? ' + ' : '') + 'otra tarea' : ''), 0.65]]);
     L.sep();
@@ -291,6 +291,17 @@
     }), 3);
     L.sep();
     L.banda('ANÁLISIS DE LA TAREA');
+    if (d.formularioVersion >= 12) {
+      L.tabla([
+        { t: 'N°', w: 0.04, a: 'center' },
+        { t: 'Secuencia de pasos', w: 0.18 },
+        { t: 'Peligro', w: 0.16 },
+        { t: 'Riesgo', w: 0.18 },
+        { t: '¿Crítico?', w: 0.07, a: 'center', b: true, color: colorSN },
+        { t: 'Medidas de control', w: 0.23 },
+        { t: 'Responsable de controles', w: 0.14 }
+      ], d.pasos.map(function (p, i) { return [i + 1, p.paso, p.peligro, p.riesgo, sn(p.critico), p.medidas, p.responsable]; }));
+    } else {
     L.tabla([
       { t: 'N°', w: 0.04, a: 'center' },
       { t: 'Secuencia de pasos básicos de la tarea ¿Qué vamos a hacer?', w: 0.22 },
@@ -299,6 +310,7 @@
       { t: 'Medidas de control ¿Qué podemos hacer al respecto?', w: 0.28 },
       { t: 'Responsable de implementar controles', w: 0.14 }
     ], d.pasos.map(function (p, i) { return [i + 1, p.paso, p.evento, sn(p.critico), p.medidas, p.responsable]; }));
+    }
     L.sep();
     L.banda('EPP Y HERRAMIENTAS');
     L.casillas(window.Modelo.catalogoEpp(d).map(function (e) { return [e.label, !!d.epp[e.id]]; }), 3);
@@ -334,7 +346,7 @@
     L.fila([['Fecha', fmtF(s.fecha), 0.2], ['Hora inicial', s.horaInicio, 0.15], ['Hora final', s.horaFin, 0.15], ['ATS de referencia', s.atsRef, 0.25], ['Sede', s.sede, 0.25]]);
     L.fila([['Área de Grupo Pana', s.ejecutaNombre, 1]]);
     L.fila([['Descripción de la tarea', s.tarea, 1]]);
-    L.fila([['Lugar específico de la tarea', s.lugar, 1]]);
+    if (!(d.formularioVersion >= 12)) L.fila([['Lugar específico de la tarea', s.lugar, 1]]);
     L.casillas(window.Modelo.configPetar(d).tipos.map(function (t) { return [t.label, !!d.tipos[t.id]]; }), 4);
     /* v08: en el PETAR B&P la capacitación se verifica una sola vez en los requisitos de seguridad. */
     if (!window.Modelo.esBP(d)) L.tabla([{ t: 'Pregunta', w: 0.85 }, { t: 'Respuesta', w: 0.15, a: 'center', b: true, color: colorSN }],
@@ -420,7 +432,11 @@
       ['¿Las rutas de acceso y salida están libres de obstáculos?', sn(m.rutasLibres)],
       ['¿Se indicó a los trabajadores involucrados las rutas de evacuación y puntos de reunión en caso de emergencia?', sn(m.rutasIndicadas)]
     ]);
-    L.fila([['Teléfono de contacto para emergencias', m.telefono, 0.5], ['Persona de contacto para emergencias', m.contacto, 0.5]]);
+    if (m.contactos) {
+      L.texto('Contactos para accidentes e incidentes', 'Área de SST y contacto de Trabajadora Social');
+      L.tabla([{ t: 'Nombre', w: 0.5 }, { t: 'Área', w: 0.3 }, { t: 'Teléfono', w: 0.2 }],
+        m.contactos.map(function (x) { return [x.nombre, x.area, x.telefono]; }));
+    } else L.fila([['Teléfono de contacto para emergencias', m.telefono, 0.5], ['Persona de contacto para emergencias', m.contacto, 0.5]]);
     if (d.observaciones) L.texto('Observaciones', d.observaciones);
     L.sep();
 
@@ -505,3 +521,4 @@
     descargar: function (d) { return generarAsync(d).then(function (pdf) { pdf.save(window.DocPDF.nombreArchivo(d)); }); }
   };
 })();
+

@@ -1,5 +1,5 @@
 /* =====================================================================
-   CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v11
+   CONFIGURACIÓN — Grupo Pana · Gestión Digital SST · v12
    ATS y PETAR — configuración multisede, área B&P
    ---------------------------------------------------------------------
    Todo el contenido de los formatos vive aquí. Cambiar una pregunta,
@@ -26,7 +26,13 @@ window.SST_CONFIG = {
   sede: '',
   sedeCodigo: '',
   areaPorDefecto: 'Planchado y pintura (B&P)',
-  version: 'v11 (ATS de llenado manual)',
+  version: 'v12 (contactos y formularios simplificados)',
+  encargadoSedePorDefecto: 'Sandro Vallebuona',
+  contactosEmergencia: [
+    { nombre: 'Silvia Romero Cuellar', telefono: '954315442', area: 'SST' },
+    { nombre: 'Vanessa Ramos Jimenez', telefono: '969331233', area: 'SST' },
+    { nombre: 'Marilin Tejeda Guadalupe', telefono: '981118737', area: 'Trabajadora Social' }
+  ],
 
   /* URL del flujo de Power Automate ("Cuando se recibe una solicitud HTTP").
      Vacía = la app funciona igual, pero no envía correo ni guarda en SharePoint. */
@@ -432,3 +438,4 @@ window.SST_CONFIG = {
     evidenciasPorTipo: {}
   });
 })(window.SST_CONFIG);
+
