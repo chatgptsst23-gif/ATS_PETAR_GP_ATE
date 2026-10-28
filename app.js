@@ -343,6 +343,9 @@
         '<button class="enlace" data-accion="cambiar-usuario">Cambiar</button></div>' +
         (window.Envio.configurado() ? '' :
           '<div class="alerta alerta--aviso">Envío a SST no configurado: los documentos se generan, pero no se envían por correo ni se guardan en SharePoint. <button class="enlace" data-accion="ir-ajustes">Configurar</button></div>') +
+        '<section class="recordatorios-inicio" aria-labelledby="recordatoriosTitulo"><h2 id="recordatoriosTitulo">Antes de iniciar el trabajo</h2>' +
+          '<ul><li>Recuerda llenar el <strong>ATS de manera semanal</strong>.</li>' +
+          '<li>Si vas a realizar <strong>trabajos de alto riesgo (caliente o altura)</strong>, llena primero el ATS y luego completa el PETAR. Al terminar el trabajo, valida que el lugar de trabajo quede ordenado.</li></ul></section>' +
         '<div class="dos-botones">' +
           '<button class="btn-nuevo" data-accion="nuevo-ats"><span class="btn-nuevo__signo">+</span><span class="btn-nuevo__txt"><strong>Nuevo ATS</strong><small>Análisis de trabajo seguro</small></span></button>' +
           '<button class="btn-nuevo btn-nuevo--petar" data-accion="nuevo-petar"><span class="btn-nuevo__signo">+</span><span class="btn-nuevo__txt"><strong>Nuevo PETAR</strong><small>Caliente · altura · mat. peligrosos</small></span></button>' +

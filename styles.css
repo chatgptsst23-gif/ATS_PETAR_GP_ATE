@@ -859,3 +859,8 @@ button[disabled].btn { opacity: .5; cursor: not-allowed; }
 /* Contactos visibles y accionables en móvil. */
 .contactos-emergencia .dato { padding: 12px 0; border-bottom: 1px solid var(--borde, #dce1e7); }
 .contactos-emergencia .dato a { display: inline-block; padding: 8px 0; font-weight: 700; }
+
+.recordatorios-inicio { margin: 20px 0; padding: 18px 20px; border-left: 5px solid #bd000e; border-radius: 8px; background: #fff; color: #1d1d1b; }
+.recordatorios-inicio h2 { margin: 0 0 12px; font-size: 1.1rem; }
+.recordatorios-inicio ul { margin: 0; padding-left: 22px; line-height: 1.6; }
+.recordatorios-inicio li + li { margin-top: 10px; }

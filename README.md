@@ -1,5 +1,9 @@
 # ATS y PETAR — Grupo Pana · Multisede
 
+## v12.1 · Recordatorios en inicio (28-10-2026)
+
+La pantalla de inicio muestra la indicación operativa solicitada por el área: llenar el ATS semanalmente; para trabajos en caliente o altura, completar primero el ATS y después el PETAR; al terminar, validar el orden del lugar de trabajo. Este aviso no cambia automáticamente las fechas ni la vigencia del PETAR.
+
 ## v12 · Ajustes de formularios y firmas (28-10-2026)
 
 - Encargado de sede automático: **Sandro Vallebuona**.
